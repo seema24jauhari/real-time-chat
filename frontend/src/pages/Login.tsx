@@ -1,10 +1,11 @@
-import { MessageCircle } from "lucide-react";
+import { Eye, EyeOff, MessageCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import api from '../api/axios'
+import { jwtDecode } from 'jwt-decode'
 
 
 const loginSchema = z.object({
@@ -18,13 +19,14 @@ function Login() {
     const {
         register,
         handleSubmit,
-        formState: { errors, isSubmitting },
+        formState: { errors, isSubmitting }, setError
     } = useForm<LoginForm>({
         resolver: zodResolver(loginSchema),
     });
 
     const navigate = useNavigate()
     const [apiError, setApiError] = useState('')
+    const [showPassword, setShowPassword] = useState(false);
 
     const onSubmit = async (data: LoginForm) => {
     try {
@@ -38,14 +40,28 @@ function Login() {
         }
       }
       else{
-        localStorage.setItem("token", result.token);
+        const decoded: { sub: string } = jwtDecode(result.access_token)
+        localStorage.setItem("token", result.access_token);
+        localStorage.setItem('userId', decoded.sub) // decode from JWT
         navigate("/chatroom");    
       }
-    } catch (err) {
-      console.log(err);
-      setApiError('Something went wrong. Please try again.')
+    } catch (err: any) {
+        const status = err.response?.status
+        const data = err.response?.data
+
+        if (status === 409) {
+          setApiError('Email already exists')
+        } else if (status === 400) {
+          Object.entries(data.errors).forEach(([field, message]) => {
+            setError(field as keyof LoginForm, {
+              message: message as string
+            })
+          })
+        } else {
+          setApiError(data?.message || 'Something went wrong')
+        }
     }
-  };
+    };
 
   return (
     <>
@@ -77,20 +93,34 @@ function Login() {
             </div>
             <div>
               <div className="text-[0.8rem] text-left mt-4">Password</div>
-              <input
+              {/* <input
                 type="password"
                 {...register("password")}
                 className="text-[0.9rem] w-full rounded-md p-[0.5rem] focus:border-[#6da7ec] focus:outline-none focus:ring-0 bg-[#2c2c2a] border border-[#1f1f1e] text-[#fff]"
                 placeholder="Enter your password"
+              /> */}
+              <div className="relative mt-1">
+               <input
+                type={(!showPassword)?"password":"text"}
+                {...register('password')} className='text-[0.9rem] w-full rounded-md p-[0.5rem] focus:border-[#6da7ec] focus:outline-none focus:ring-0 bg-[#2c2c2a] border border-[#1f1f1e] text-[#fff]' placeholder='Enter your password' 
+
               />
+              <button
+                type="button"
+                className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white'
+                onClick={() => setShowPassword(state=>!state) }
+              >
+                {(!showPassword)?<EyeOff size={20} />:<Eye size={20} />}
+              </button>
+              </div>
               {errors.password && (
                 <p className="text-red-400 text-[0.75rem] mt-1 text-right">
                   {errors.password.message}
                 </p>
               )}
-              <div className="text-[0.8rem] mt-1 text-right text-[#6da7ec]">
+              <Link to="/forget-password" className="text-[0.8rem] mt-1 text-right text-[#6da7ec] block">
                 Forget Password?
-              </div>
+              </Link>
             </div>
             <div>
               <button

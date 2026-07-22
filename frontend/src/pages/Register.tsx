@@ -1,4 +1,4 @@
-import { UserPlus } from 'lucide-react';
+import { Eye, EyeOff, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useNavigate } from "react-router-dom";
 import z from 'zod';
@@ -21,21 +21,40 @@ function Register() {
     const [password, setPassword] = useState('')
     const navigate = useNavigate()
     
-    const { register, handleSubmit, formState: { errors, isSubmitting } } = useForm<RegisterForm>({
+    const { register, handleSubmit, formState: { errors, isSubmitting, }, setError } = useForm<RegisterForm>({
         resolver: zodResolver(registerSchema)
     
     })
-    const onSubmit = async (data: RegisterForm) => {  
-        try{
-            const res = await api.post('/auth/register', data, { withCredentials: true });
-            const result = await res.data
-            if (result) {
-                navigate('/')
-            }
-        } catch(err){
-            console.log(err)
+    const [apiError, setApiError] = useState('')
+    const [showPassword, setShowPassword] = useState(false)
+
+    const onSubmit = async (data: RegisterForm) => {
+      try {
+        setApiError('')
+        const res = await api.post('/auth/register', data, { withCredentials: true })
+        const result = res.data
+
+        if (result.email) {
+          navigate('/')
+          return 
         }
 
+      } catch (err: any) {
+        const status = err.response?.status
+        const data = err.response?.data
+
+        if (status === 409) {
+          setApiError('Email already exists')
+        } else if (status === 400) {
+          Object.entries(data.errors).forEach(([field, message]) => {
+            setError(field as keyof RegisterForm, {
+              message: message as string
+            })
+          })
+        } else {
+          setApiError('Something went wrong. Please try again.')
+        }
+      }
     }
   return (
     <>
@@ -65,17 +84,32 @@ function Register() {
               </div>
               <div>
                   <div className='text-[0.8rem] text-left mt-4'>Password</div> 
-                  <input {...register('password')} type="password" className='text-[0.9rem] w-full rounded-md p-[0.5rem] focus:border-[#6da7ec] focus:outline-none focus:ring-0 bg-[#2c2c2a] border border-[#1f1f1e] text-[#fff]' placeholder='Enter your password' value={password} onChange={(e) => setPassword(e.target.value)}/>
+                  <div className="relative mt-1">
+                  <input
+                    type={(!showPassword)?"password":"text"}
+                    {...register('password')} className='text-[0.9rem] w-full rounded-md p-[0.5rem] focus:border-[#6da7ec] focus:outline-none focus:ring-0 bg-[#2c2c2a] border border-[#1f1f1e] text-[#fff]' placeholder='Enter your password' value={password} onChange={(e) => setPassword(e.target.value)}
+
+                  />
+                  <button
+                    type="button"
+                    className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white'
+                    onClick={() => setShowPassword(state=>!state) }
+                  >
+                    {(!showPassword)?<EyeOff size={20} />:<Eye size={20} />}
+                  </button>
+                </div>
                   {errors.password && (
                     <p className='text-red-400 text-[0.75rem] mt-1 text-right'>{errors.password.message}</p>
                   )}
-                  <div className='text-[0.8rem] mt-1 text-right text-[#6da7ec]'>Forget Password?</div>
               </div>
               <div>
                     <button className='text-[0.9rem] w-full rounded-md p-[0.5rem] mt-4 bg-[#fff] text-[#242424] font-bold cursor-pointer hover:bg-[#f0f0f0]' 
                     disabled={isSubmitting}
                     onClick={handleSubmit(onSubmit)}
                     >{isSubmitting ? 'Signing up...' : 'Sign up'}</button>
+                    {apiError && (
+                      <p className="text-red-400 text-[0.75rem] mt-3 text-center">{apiError}</p>
+                    )}
               </div>
               <div className='text-[0.8rem] mt-4 text-center'>Already have an account? 
                 <Link to="/" className="text-[#6da7ec] ml-1">

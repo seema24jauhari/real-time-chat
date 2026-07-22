@@ -13,31 +13,38 @@ api.interceptors.request.use((config) => {
 
 // catch 401 and refresh automatically
 api.interceptors.response.use(
-  (response) => response, // success — just return
+  (response) => response,
   async (error) => {
     const originalRequest = error.config
 
-    // if 401 and haven't retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true // mark so we don't retry forever
+    // skip refresh for auth routes — these 401s are legitimate failures
+    const isAuthRoute = originalRequest.url?.includes('/auth/login') ||
+                        originalRequest.url?.includes('/auth/register') ||
+                        originalRequest.url?.includes('/auth/refresh')
+
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !isAuthRoute  // add this check
+    ) {
+      const token = localStorage.getItem('token')
+      if (!token) return Promise.reject(error)
+
+      originalRequest._retry = true
 
       try {
-        // call refresh endpoint
         const res = await axios.post('/api/auth/refresh', {}, {
-          withCredentials: true // refresh token is in cookie
+          withCredentials: true
         })
 
         const newToken = res.data.access_token
         localStorage.setItem('token', newToken)
-
-        // update the failed request with new token and retry
         originalRequest.headers.Authorization = `Bearer ${newToken}`
         return api(originalRequest)
 
       } catch (refreshError) {
-        // refresh also failed — token fully expired, logout
         localStorage.removeItem('token')
-        window.location.href = '/login'
+        window.location.href = '/'
         return Promise.reject(refreshError)
       }
     }
@@ -45,5 +52,4 @@ api.interceptors.response.use(
     return Promise.reject(error)
   }
 )
-
 export default api

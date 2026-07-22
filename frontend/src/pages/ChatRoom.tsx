@@ -9,13 +9,112 @@ import {
   Hash,
   Users,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import socket from "../sockets/socket";
+import { useAuthGuard } from "../hooks/useAuthGuard";
+import api from '../api/axios'
+
+
+interface SearchUser {
+  id: string
+  name: string
+  email: string
+  initials: string
+  online?: boolean
+}
+
+interface Room{
+  _id: string,
+  name: string | null,
+  type: string,
+  members: SearchUser[],
+}
 
 const ChatRoom = () => {
+  useAuthGuard() // just call it directly, the hook handles useEffect internally
+
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false); // NEW
   const [message, setMessage] = useState(""); // NEW
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
+  const [activeRoom, setActiveRoom] = useState(null)
+  const [dms, setDms] = useState<SearchUser[]>([])
+
+  // on user click in search results:
+  const startDM = async (userId: string) => {
+    const res = await api.post('/rooms/dm', { memberId: userId })
+    setActiveRoom(res.data)  // set active room
+    setSearchQuery('')        // clear search
+    setSearchOpen(false)      // close search
+  }
+  
+  // const searchResults = [
+  //   {
+  //     id: "1",
+  //     name: "Jane Cooper",
+  //     email: "jane@company.com",
+  //     initials: "JC",
+  //     online: true,
+  //   },
+  //   {
+  //     id: "2",
+  //     name: "Alex Ray",
+  //     email: "alex@company.com",
+  //     initials: "AR",
+  //     online: false,
+  //   },
+  //   {
+  //     id: "3",
+  //     name: "Sam Wilson",
+  //     email: "sam@company.com",
+  //     initials: "SW",
+  //     online: true,
+  //   },
+  // ].filter(
+  //   (u) =>
+  //     searchQuery.length > 0 &&
+  //     u.name.toLowerCase().includes(searchQuery.toLowerCase()),
+  // );
+
+  const getOtherMember = (room:Room) => {
+    let currentUserId = localStorage.getItem('userId')
+    return room.members.find(m => m.id !== currentUserId)
+
+  }
+
+  const handleSearch = async(query: string) => {
+    await api.get(`/users/search?query=${query}`)
+      .then((res) => {
+        setSearchResults(res.data)
+      })
+      .catch((err) => {
+        console.error("Error searching users:", err);
+    });
+  }
+
+  const fetchRecentDms = async () => {
+    await api.post('/rooms/recent/dms')
+      .then((res) => {
+        setDms(res.data)
+      })
+      .catch((err) => {
+        console.error("Error fetching recent DMs:", err);
+    });
+  }
+
+  useEffect(() => {
+    fetchRecentDms()
+  }, [])
+
+  useEffect(() => {
+    if (searchQuery.length > 2) {
+      handleSearch(searchQuery)
+    } else {
+      setSearchResults([])
+    }
+  }, [searchQuery]);
 
   // fake messages for now
   const messages = [
@@ -33,7 +132,6 @@ const ChatRoom = () => {
       name: "Alex Ray",
       time: "10:35 AM",
       text: "Agreed! Can we ship it this week?",
-      mine: false,
     },
     {
       id: 3,
@@ -52,8 +150,31 @@ const ChatRoom = () => {
       mine: false,
     },
   ];
-  
 
+
+  useEffect(() => {
+    socket.connect();
+
+    socket.on("connect", () => {
+      console.log("connected:", socket.id);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("disconnected");
+    });
+
+    return () => {
+      socket.disconnect(); // cleanup on unmount
+    };
+    
+  }, []);
+
+  const logout = async () => {
+    await api.delete('/auth/logout')
+    localStorage.removeItem("token");
+    window.location.href = "/";
+    setSettingsOpen(false);
+  } 
   return (
     <div className="flex flex-row w-full h-screen">
       {/* overlay */}
@@ -109,26 +230,23 @@ const ChatRoom = () => {
           <div className="pl-3 pr-3 text-left text-[0.8rem] text-[#888]">
             DMS
           </div>
+          {dms.length > 0 && (
           <div className="flex flex-col gap-1 mt-2">
-            <div className="flex flex-row p-2 gap-2 items-center ml-2 mr-2 rounded-md hover:bg-[#1a1a1a] cursor-pointer">
-              <div className="relative">
-                <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
-                  JC
+            {dms.map((dm) => {
+              const contact = getOtherMember(dm)
+              return (
+              <div key={dm.id} className="flex flex-row p-2 gap-2 items-center ml-2 mr-2 rounded-md hover:bg-[#1a1a1a] cursor-pointer">
+                <div className="relative">
+                  <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                    {contact.initials}
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-[#0d0d0d]"></div>
                 </div>
-                <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-[#0d0d0d]"></div>
+                <div className="text-white text-[0.85rem]">{contact.name}</div>
               </div>
-              <div className="text-white text-[0.85rem]">Jane Cooper</div>
-            </div>
-            <div className="flex flex-row p-2 gap-2 items-center ml-2 mr-2 rounded-md hover:bg-[#1a1a1a] cursor-pointer">
-              <div className="relative">
-                <div className="w-7 h-7 rounded-full bg-[#1d1649] text-[#a096eb] flex items-center justify-center text-[0.75rem]">
-                  AR
-                </div>
-                <div className="absolute bottom-0 right-0 w-2 h-2 bg-[#888] rounded-full border border-[#0d0d0d]"></div>
-              </div>
-              <div className="text-white text-[0.85rem]">Alex Ray</div>
-            </div>
+            )})}
           </div>
+          )}
         </div>
         <div className="mt-auto pt-3 pb-3 flex flex-row gap-2 items-center border-t border-[#1f1f1e] px-3 relative">
           <div className="w-7 h-7 rounded-full bg-[#1d1649] text-[#a096eb] flex items-center justify-center text-[0.75rem]">
@@ -183,9 +301,7 @@ const ChatRoom = () => {
               <div
                 className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#2c2c2a] cursor-pointer"
                 onClick={() => {
-                  localStorage.removeItem("token");
-                  window.location.href = "/login";
-                  setSettingsOpen(false);
+                  logout()
                 }}
               >
                 <div className="w-7 h-7 rounded-full bg-[#2a0d0d] flex items-center justify-center">
@@ -227,13 +343,62 @@ const ChatRoom = () => {
 
         {/* Search bar — conditionally shown */}
         {searchOpen && (
-          <div className="px-4 py-2 border-b border-[#FFFFFF1A] bg-[#111111]">
+          <div className="px-4 py-2 border-b border-[#FFFFFF1A] bg-[#111111] relative">
             <input
               type="text"
-              placeholder="Search messages..."
+              placeholder="Search people to message..."
               autoFocus
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-[#1a1a1a] text-white text-[0.85rem] rounded-md px-3 py-2 border border-[#2c2c2a] focus:outline-none focus:border-[#6da7ec]"
             />
+
+            {/* results dropdown */}
+            {searchResults.length > 0 && (
+              <div className="absolute left-4 right-4 top-full mt-1 bg-[#1a1a1a] border border-[#2c2c2a] rounded-lg overflow-hidden z-50">
+                {searchResults.map((user) => (
+                  <div
+                    key={user?.id}
+                    className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#2c2c2a] cursor-pointer"
+                    onClick={() => startDM(user.id)}
+                  >
+                    {/* avatar with online dot */}
+                    <div className="relative flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem] font-medium">
+                        {user.initials}
+                      </div>
+                      <div
+                        className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#1a1a1a] ${user.online ? "bg-green-500" : "bg-[#555]"}`}
+                      />
+                    </div>
+
+                    {/* name + email */}
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-white text-[0.85rem] font-medium text-left">
+                        {user.name}
+                      </span>
+                      <span className="text-[#555] text-[0.75rem] truncate">
+                        {user.email}
+                      </span>
+                    </div>
+
+                    {/* message hint */}
+                    <span className="ml-auto text-[#555] text-[0.75rem] flex-shrink-0">
+                      Message
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* no results */}
+            {searchQuery.length > 0 && searchResults.length === 0 && (
+              <div className="absolute left-4 right-4 top-full mt-1 bg-[#1a1a1a] border border-[#2c2c2a] rounded-lg px-3 py-3 z-50">
+                <span className="text-[#555] text-[0.85rem]">
+                  No users found for "{searchQuery}"
+                </span>
+              </div>
+            )}
           </div>
         )}
 
