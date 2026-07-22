@@ -9,7 +9,11 @@ import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { RedisThrottlerStorage } from './common/redis-throttler.storage';
 import { APP_GUARD } from '@nestjs/core';
 import { ApiKeyMiddleware } from './common/middleware/api-key.middleware';
+import { ChatGateway } from './gateway/chat/chat.gateway';
 import 'http';
+import { JwtModule } from '@nestjs/jwt';
+import { RoomsModule } from './rooms/rooms.module';
+import { MessagesModule } from './messages/messages.module';
 
 declare module 'http' {
   interface IncomingMessage {
@@ -21,10 +25,13 @@ declare module 'http' {
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    JwtModule.register({
+      secret: process.env.JWT_SECRET,
+    }),
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
-        throttlers: [{ ttl: 900000, limit: 5 }],
+        throttlers: [{ ttl: Number(process.env.JWT_EXPIRY ?? 15) * 60 * 1000, limit: 5 }],
         storage: new RedisThrottlerStorage(
           config.get<string>('REDIS_URL') ?? 'redis://localhost:6379',
         ),
@@ -44,9 +51,12 @@ declare module 'http' {
     }),
     AuthModule,
     UsersModule,
+    RoomsModule,
+    MessagesModule,
   ],
+  exports: [JwtModule], // is this here?
   controllers: [],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }, ChatGateway],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

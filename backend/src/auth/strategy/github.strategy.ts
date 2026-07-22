@@ -19,7 +19,7 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
     });
   }
 
-  async validate(accessToken: string, refreshToken: string, profile: Profile) {
+  async validate(_accessToken: string, _refreshToken: string, profile: Profile) {
     try {
       const email = profile.emails?.[0]?.value;
       if (!email) throw new Error('No email returned from GitHub');
@@ -28,6 +28,7 @@ export class GithubStrategy extends PassportStrategy(Strategy, 'github') {
         email,
         provider: 'github',
         providerId: profile.id,
+        name: profile.displayName ?? email.split('@')[0], // ← add this
       });
       return user;
     } catch (err) {

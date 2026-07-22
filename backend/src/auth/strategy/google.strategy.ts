@@ -20,7 +20,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
     });
   }
 
-  async validate(accessToken: string, refreshToken: string, profile: Profile) {
+  async validate(_accessToken: string, _refreshToken: string, profile: Profile) {
     try {
       const email = profile.emails?.[0]?.value;
       if (!email) throw new Error('No email returned from Google');
@@ -29,6 +29,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         email,
         provider: 'google',
         providerId: profile.id,
+        name: profile.displayName ?? email.split('@')[0], // ← add this
       });
       return user;
     } catch (err) {

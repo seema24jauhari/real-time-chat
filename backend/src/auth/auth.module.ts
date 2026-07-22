@@ -14,6 +14,7 @@ import { JwtStrategy } from './jwt.strategy';
 import { DashboardModule } from '../dashboard/dashboard.module';
 import { GoogleStrategy } from './strategy/google.strategy';
 import { GithubStrategy } from './strategy/github.strategy';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { GithubStrategy } from './strategy/github.strategy';
         secret: config.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          expiresIn: (config.get<string>('JWT_EXPIRY') ?? '15m') as any,
+          expiresIn: `${config.get('JWT_EXPIRY') ?? '15'}m`,
         },
       }),
     }),
@@ -32,12 +33,13 @@ import { GithubStrategy } from './strategy/github.strategy';
     RedisModule,
     PassportModule,
     DashboardModule,
+    MailModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Token.name, schema: TokenSchema },
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, GithubStrategy],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, GithubStrategy, MailModule],
 })
 export class AuthModule {}

@@ -144,8 +144,6 @@ Response:
 ```json
 {
   "access_token": "eyJhbGci...",
-  "refresh_token": "eyJhbGci...",
-  "expires_in": 900
 }
 ```
 

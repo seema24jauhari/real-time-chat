@@ -13,6 +13,12 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<express.Request>();
     const response = ctx.getResponse<express.Response>();
 
+    // let OPTIONS preflight pass through without interference
+    if (request.method === 'OPTIONS') {
+      response.status(204).send();
+      return;
+    }
+
     const errorResponse = exception.getResponse();
 
     response.status(exception.getStatus()).json({

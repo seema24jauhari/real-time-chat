@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  HttpCode,
   Post,
   Req,
   Res,
@@ -35,13 +36,13 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
-  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 attempts per 15 min, THIS route only
+  @HttpCode(200)
   register(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @Post('login')
-  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 attempts per 15 min, THIS route only
+  @HttpCode(200)
   login(
     @Body() loginDto: LoginDto,
     @Res({ passthrough: true }) res: express.Response,
@@ -51,7 +52,7 @@ export class AuthController {
   }
 
   @Post('refresh')
-  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 attempts per 15 min, THIS route only
+  @HttpCode(200)
   refresh(@Req() req: express.Request) {
     return this.authService.refresh(req);
   }
@@ -93,15 +94,41 @@ export class AuthController {
   }
 
   @Post('mfa/setup')
+  @HttpCode(200)
   @UseGuards(JwtAuthGuard)
   setup(@Req() req: AuthRequest) {
     return this.authService.setupMfa(req.user.id);
   }
 
   @Post('mfa/login')
+  @HttpCode(200)
   @UseGuards(JwtAuthGuard)
-  @Throttle({ default: { limit: 5, ttl: 900000 } }) // 5 attempts per 15 min, THIS route only
   verify(@Body() body: { code: string }, @Req() req: AuthRequest) {
     return this.authService.verifyMfaLogin(req.user.sub._id, body.code);
+  }
+
+  @Get('verify-token')
+  @UseGuards(JwtAuthGuard)
+  verifyToken(@Req() req: express.Request) {
+    // If we reach here, JwtAuthGuard already verified the signature + expiry
+    return {
+      valid: true,
+      user: req.user, // whatever your JwtStrategy.validate() returns
+    };
+  }
+
+  @Post('forget-password')
+  @HttpCode(200)
+  forgotPassword(@Body('email') email: string) {
+    return this.authService.forgotPassword(email)
+  }
+
+  @Post('reset-password')
+  @HttpCode(200)
+  resetPassword(
+    @Body('token') token: string,
+    @Body('password') password: string
+  ) {
+    return this.authService.resetPassword(token, password)
   }
 }

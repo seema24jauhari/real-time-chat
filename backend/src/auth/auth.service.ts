@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   UnauthorizedException,
@@ -16,14 +17,20 @@ import * as speakeasy from 'speakeasy';
 import * as QRCode from 'qrcode';
 import { User } from 'src/users/schemas/user.schema';
 import { Document } from 'mongoose';
+import * as crypto from 'crypto'
+import * as bcrypt from 'bcrypt'
+import { MailService } from 'src/mail/mail.service';
 
 interface JwtPayload {
   sub: string;
   email: string;
+  name: string;
+  roles: string[];
   exp?: number;
   iat?: number;
   password?: string;
 }
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -32,6 +39,7 @@ export class AuthService {
     private jwtService: JwtService,
     private config: ConfigService,
     private redisService: RedisService,
+    private mailService: MailService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -47,9 +55,10 @@ export class AuthService {
     const user = await this.usersService.create(
       registerDto.email,
       password_hash,
+      registerDto.name,
     );
 
-    return { id: user._id, email: user.email };
+    return { id: user._id, email: user.email, roles: user.roles };
   }
 
   async login(
@@ -79,12 +88,16 @@ export class AuthService {
     const access_token = this.jwtService.sign({
       sub: user._id,
       email: user.email,
+      name: user.name,
+      roles: user.roles,
     });
 
     const payload = {
       sub: user._id,
       email: email,
+      name: user.name,
       password: password,
+      roles: user.roles,
     };
     const refresh_token = this.jwtService.sign(payload, {
       secret: this.config.get<string>('REFRESH_SECRET'),
@@ -109,7 +122,7 @@ export class AuthService {
       userId: user._id,
       correlationId: req.correlationId,
     });
-    return { access_token };
+    return { access_token, name: user.name, roles: user.roles };
   }
 
   // auth.service.ts
@@ -139,9 +152,10 @@ export class AuthService {
       const access_token = this.jwtService.sign({
         sub: payload.sub,
         email: payload.email,
+        roles: payload.roles,
       });
 
-      return { access_token };
+      return { access_token, name: payload.name, roles: payload.roles };
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -166,9 +180,12 @@ export class AuthService {
 
   // auth.service.ts — add this method, reusing your existing token-issuing logic
   async handleOAuthLogin(user: User & Document, res: express.Response) {
+    
     const payload: JwtPayload = {
       sub: user._id.toString(),
       email: user.email,
+      name: user.name,
+      roles: user.roles,
     };
     const access_token = this.jwtService.sign(payload);
     const refresh_token = this.jwtService.sign(
@@ -251,5 +268,41 @@ export class AuthService {
     return {
       access_token,
     };
+  }
+
+  async forgotPassword(email: string) {
+    const user = await this.usersService.findByEmail(email)
+    if (!user) throw new UnauthorizedException('User not found');
+
+
+    const token = crypto.randomBytes(32).toString('hex')
+    const expiry = new Date(Date.now() + 3600000) // 1 hour
+
+    await this.usersService.updateOne({ email }, {
+      resetToken: token,
+      resetTokenExpiry: expiry
+    })
+
+    await this.mailService.sendResetEmail(email, token)
+    return { message: 'Reset email sent' }
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    const user = await this.usersService.findOne({
+      resetToken: token,
+      resetTokenExpiry: { $gt: new Date() } // not expired
+    })
+
+    if (!user) throw new BadRequestException('Invalid or expired token')
+    
+    const password_hash = await argon2.hash(newPassword, {
+      type: argon2.argon2id,
+    });
+    user.password_hash = password_hash
+    user.resetToken = null
+    user.resetTokenExpiry = null
+    await user.save()
+
+    return { message: 'Password reset successful' }
   }
 }
