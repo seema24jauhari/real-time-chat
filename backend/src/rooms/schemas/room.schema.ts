@@ -8,14 +8,14 @@ export class Room {
   @Prop({ required: true, enum: ['channel', 'dm'] })
   type: string
 
-  @Prop({ type: String, default: null })
+  @Prop({ type: String, default: null, unique: true, sparse: true })
   name: string | null
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'User' }], required: true })
+  @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   members: Types.ObjectId[]
 
-  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  created_by: Types.ObjectId
+  @Prop({ type: Types.ObjectId, ref: 'User', default: null})
+  created_by: Types.ObjectId | null
 
   @Prop({ type: Types.ObjectId, ref: 'Message', default: null })
   last_message: Types.ObjectId

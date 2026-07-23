@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common'
 import { MongooseModule } from '@nestjs/mongoose'
-import { Room, RoomSchema } from './room.schema'
+import { Room, RoomSchema } from './schemas/room.schema'
 import { RoomsService } from './rooms.service'
 import { RoomsController } from './rooms.controller'
 
@@ -12,4 +12,10 @@ import { RoomsController } from './rooms.controller'
   controllers: [RoomsController],
   exports: [RoomsService], // export so gateway can use it
 })
-export class RoomsModule {}
+export class RoomsModule {
+  constructor(private roomsService: RoomsService) {}
+
+  async onModuleInit(){
+      await this.roomsService.seedDefaultChannels()
+  }
+}

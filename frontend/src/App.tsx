@@ -6,24 +6,27 @@ import PublicRoute from './routes/PublicRoute'
 import ProtectedRoute from './routes/ProtectedRoute'
 import ForgetPassword from './pages/ForgetPassword'
 import ResetPassword from './pages/ResetPassword'
+import { UserProvider } from './context/UserContext'
 
 function App() {
 
   return (
     <>
-      <BrowserRouter>
-        <Routes>
-          <Route element={<PublicRoute />}>
-            <Route path="/" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forget-password" element={<ForgetPassword />} />
-            <Route path='/reset-password' element={<ResetPassword />} />
+      <UserProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route element={<PublicRoute />}>
+              <Route path="/" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/forget-password" element={<ForgetPassword />} />
+              <Route path='/reset-password' element={<ResetPassword />} />
+            </Route>
+            <Route element={<ProtectedRoute />}>
+              <Route path='/chatroom' element={<ChatRoom />} />
           </Route>
-          <Route element={<ProtectedRoute />}>
-             <Route path='/chatroom' element={<ChatRoom />} />
-         </Route>
-        </Routes>
-      </BrowserRouter>
+          </Routes>
+        </BrowserRouter>
+      </UserProvider>
     </>
   )
 }

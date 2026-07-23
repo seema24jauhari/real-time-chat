@@ -20,6 +20,7 @@ import { Document } from 'mongoose';
 import * as crypto from 'crypto'
 import * as bcrypt from 'bcrypt'
 import { MailService } from 'src/mail/mail.service';
+import { RoomsService } from 'src/rooms/rooms.service';
 
 interface JwtPayload {
   sub: string;
@@ -40,6 +41,7 @@ export class AuthService {
     private config: ConfigService,
     private redisService: RedisService,
     private mailService: MailService,
+    private roomService: RoomsService,
   ) {}
 
   async register(registerDto: RegisterDto) {
@@ -58,6 +60,7 @@ export class AuthService {
       registerDto.name,
     );
 
+    await this.roomService.addToDefaultChannels(user._id)
     return { id: user._id, email: user.email, roles: user.roles };
   }
 
@@ -153,6 +156,7 @@ export class AuthService {
         sub: payload.sub,
         email: payload.email,
         roles: payload.roles,
+        name: payload.name,
       });
 
       return { access_token, name: payload.name, roles: payload.roles };

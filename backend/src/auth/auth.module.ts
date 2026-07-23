@@ -15,6 +15,7 @@ import { DashboardModule } from '../dashboard/dashboard.module';
 import { GoogleStrategy } from './strategy/google.strategy';
 import { GithubStrategy } from './strategy/github.strategy';
 import { MailModule } from '../mail/mail.module';
+import { RoomsModule } from 'src/rooms/rooms.module';
 
 @Module({
   imports: [
@@ -34,12 +35,13 @@ import { MailModule } from '../mail/mail.module';
     PassportModule,
     DashboardModule,
     MailModule,
+    RoomsModule,
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
       { name: Token.name, schema: TokenSchema },
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, GoogleStrategy, GithubStrategy, MailModule],
+  providers: [AuthService, JwtStrategy, GoogleStrategy, GithubStrategy],
 })
 export class AuthModule {}

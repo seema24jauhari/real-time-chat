@@ -12,145 +12,164 @@ import {
 import { useEffect, useState } from "react";
 import socket from "../sockets/socket";
 import { useAuthGuard } from "../hooks/useAuthGuard";
-import api from '../api/axios'
-
+import api from "../api/axios";
+import { useUser } from "../context/UserContext";
 
 interface SearchUser {
-  id: string
-  name: string
-  email: string
-  initials: string
-  online?: boolean
+  id: string;
+  name: string;
+  email: string;
+  initials: string;
+  online?: boolean;
 }
 
-interface Room{
-  _id: string,
-  name: string | null,
-  type: string,
-  members: SearchUser[],
+interface Room {
+  id: string;
+  name: string | null;
+  type: string;
+  members: SearchUser[];
 }
 
 const ChatRoom = () => {
-  useAuthGuard() // just call it directly, the hook handles useEffect internally
+  useAuthGuard(); // just call it directly, the hook handles useEffect internally
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false); // NEW
   const [message, setMessage] = useState(""); // NEW
+  const [prevMessages, setPrevMessages] = useState([]); // NEW
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<SearchUser[]>([]);
-  const [activeRoom, setActiveRoom] = useState(null)
-  const [dms, setDms] = useState<SearchUser[]>([])
+  const [activeRoom, setActiveRoom] = useState<Room>();
+  const [dms, setDms] = useState<SearchUser[]>([]);
+  const [channels, setChannels] = useState<SearchUser[]>([]);
+
+  const { user } = useUser();
 
   // on user click in search results:
   const startDM = async (userId: string) => {
-    const res = await api.post('/rooms/dm', { memberId: userId })
-    setActiveRoom(res.data)  // set active room
-    setSearchQuery('')        // clear search
-    setSearchOpen(false)      // close search
-  }
-  
-  // const searchResults = [
-  //   {
-  //     id: "1",
-  //     name: "Jane Cooper",
-  //     email: "jane@company.com",
-  //     initials: "JC",
-  //     online: true,
-  //   },
-  //   {
-  //     id: "2",
-  //     name: "Alex Ray",
-  //     email: "alex@company.com",
-  //     initials: "AR",
-  //     online: false,
-  //   },
-  //   {
-  //     id: "3",
-  //     name: "Sam Wilson",
-  //     email: "sam@company.com",
-  //     initials: "SW",
-  //     online: true,
-  //   },
-  // ].filter(
-  //   (u) =>
-  //     searchQuery.length > 0 &&
-  //     u.name.toLowerCase().includes(searchQuery.toLowerCase()),
-  // );
+    const res = await api.post("/rooms/dm", { memberId: userId });
+    setActiveRoom(res.data); // set active room
+    setDms((prev) => [...prev, res.data]);
+    setSearchQuery(""); // clear search
+    setSearchOpen(false); // close search
+  };
 
-  const getOtherMember = (room:Room) => {
-    let currentUserId = localStorage.getItem('userId')
-    return room.members.find(m => m.id !== currentUserId)
+  const getOtherMember = (room: Room) => {
+    let currentUserId = user?.sub;
+    return room.members.find((m) => m.id !== currentUserId);
+  };
 
-  }
-
-  const handleSearch = async(query: string) => {
-    await api.get(`/users/search?query=${query}`)
+  const handleSearch = async (query: string) => {
+    await api
+      .get(`/users/search?query=${query}`)
       .then((res) => {
-        setSearchResults(res.data)
+        setSearchResults(res.data);
       })
       .catch((err) => {
         console.error("Error searching users:", err);
-    });
-  }
+      });
+  };
 
   const fetchRecentDms = async () => {
-    await api.post('/rooms/recent/dms')
+    await api
+      .post("/rooms/recent/dms")
       .then((res) => {
-        setDms(res.data)
+        setDms(res.data);
       })
       .catch((err) => {
         console.error("Error fetching recent DMs:", err);
-    });
-  }
+      });
+  };
+
+  const fetchRecentChannels = async () => {
+    await api
+      .post("/rooms/recent/channels")
+      .then((res) => {
+        setChannels(res.data);
+        setActiveRoom(res.data[0]);
+      })
+      .catch((err) => {
+        console.error("Error fetching recent Channels:", err);
+      });
+  };
+
+  const fetchMessages = async (roomId: string) => {
+    const res = await api.get(`/rooms/${roomId}/messages`);
+    setMessage(res.data);
+  };
+
+  const fetchActiveRoomData = (roomId: string, type="dms") => {
+    let roomData = []
+    if(type=="dms"){
+      roomData = dms.find((elem) => elem.id === roomId);
+    }
+    else{
+      roomData = channels.find((elem) => elem.id === roomId);
+    }
+    setActiveRoom(roomData);
+  };
+
+  const logout = async () => {
+    await api.delete("/auth/logout");
+    localStorage.removeItem("token");
+    window.location.href = "/";
+    setSettingsOpen(false);
+  };
 
   useEffect(() => {
-    fetchRecentDms()
-  }, [])
+    fetchRecentDms();
+    fetchRecentChannels();
+  }, []);
 
   useEffect(() => {
     if (searchQuery.length > 2) {
-      handleSearch(searchQuery)
+      handleSearch(searchQuery);
     } else {
-      setSearchResults([])
+      setSearchResults([]);
     }
   }, [searchQuery]);
 
   // fake messages for now
-  const messages = [
-    {
-      id: 1,
-      sender: "JC",
-      name: "Jane Cooper",
-      time: "10:32 AM",
-      text: "Hey team! The new design is looking great 🎨",
-      mine: false,
-    },
-    {
-      id: 2,
-      sender: "AR",
-      name: "Alex Ray",
-      time: "10:35 AM",
-      text: "Agreed! Can we ship it this week?",
-    },
-    {
-      id: 3,
-      sender: "ME",
-      name: "You",
-      time: "10:37 AM",
-      text: "Yes! I'll have it ready by Thursday 🚀",
-      mine: true,
-    },
-    {
-      id: 4,
-      sender: "JC",
-      name: "Jane Cooper",
-      time: "10:40 AM",
-      text: "Perfect. Let's sync tomorrow morning.",
-      mine: false,
-    },
-  ];
+  // const messages = [
+  //   {
+  //     id: 1,
+  //     sender: "JC",
+  //     name: "Jane Cooper",
+  //     time: "10:32 AM",
+  //     text: "Hey team! The new design is looking great 🎨",
+  //     mine: false,
+  //   },
+  //   {
+  //     id: 2,
+  //     sender: "AR",
+  //     name: "Alex Ray",
+  //     time: "10:35 AM",
+  //     text: "Agreed! Can we ship it this week?",
+  //   },
+  //   {
+  //     id: 3,
+  //     sender: "ME",
+  //     name: "You",
+  //     time: "10:37 AM",
+  //     text: "Yes! I'll have it ready by Thursday 🚀",
+  //     mine: true,
+  //   },
+  //   {
+  //     id: 4,
+  //     sender: "JC",
+  //     name: "Jane Cooper",
+  //     time: "10:40 AM",
+  //     text: "Perfect. Let's sync tomorrow morning.",
+  //     mine: false,
+  //   },
+  // ];
 
+  useEffect(() => {
+    if (activeRoom?.id) {
+      fetchMessages(activeRoom.id);
+    }
+  }, [activeRoom]);
 
   useEffect(() => {
     socket.connect();
@@ -166,15 +185,8 @@ const ChatRoom = () => {
     return () => {
       socket.disconnect(); // cleanup on unmount
     };
-    
   }, []);
 
-  const logout = async () => {
-    await api.delete('/auth/logout')
-    localStorage.removeItem("token");
-    window.location.href = "/";
-    setSettingsOpen(false);
-  } 
   return (
     <div className="flex flex-row w-full h-screen">
       {/* overlay */}
@@ -211,48 +223,58 @@ const ChatRoom = () => {
             CHANNELS
           </div>
           <div className="flex flex-col gap-2 mt-2">
-            <div className="flex flex-row bg-[#032042] ml-3 mr-3 p-1 rounded-md">
-              <div className="pl-3 pr-3 text-left text-[0.8rem] flex-1">
-                <span className="text-[#6da7ec]"># general</span>
-              </div>
-              <div className="text-[0.8rem] bg-[#fff] text-[#333] rounded-full w-5 h-5 flex items-center justify-center">
-                2
-              </div>
-            </div>
-            <div className="flex flex-row ml-3 mr-3 p-1 rounded-md hover:bg-[#1a1a1a] cursor-pointer">
-              <div className="pl-3 pr-3 text-left text-[0.8rem] flex-1">
-                <span className="text-[#888]"># random</span>
-              </div>
-            </div>
+            {channels.length > 0 &&
+              channels.map((channel) => (
+                <div className="flex flex-row items-center bg-[#032042] ml-3 mr-3 p-1 rounded-md cursor-pointer" onClick={() => fetchActiveRoomData(channel.id,"channel")}>
+                  <div className="pl-2 pr-2 text-left text-[0.8rem] flex-1">
+                    <div className="flex items-center gap-1">
+                      <Hash size={12} className="text-[#6da7ec]" />
+                      <span className="text-[#6da7ec]">{channel.name}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-[0.8rem] bg-white text-[#333] rounded-full w-5 h-5 flex items-center justify-center">
+                    2
+                  </div>
+                </div>
+              ))}
           </div>
         </div>
         <div className="flex flex-col mt-4">
           <div className="pl-3 pr-3 text-left text-[0.8rem] text-[#888]">
             DMS
           </div>
-          {dms.length > 0 && (
-          <div className="flex flex-col gap-1 mt-2">
-            {dms.map((dm) => {
-              const contact = getOtherMember(dm)
-              return (
-              <div key={dm.id} className="flex flex-row p-2 gap-2 items-center ml-2 mr-2 rounded-md hover:bg-[#1a1a1a] cursor-pointer">
-                <div className="relative">
-                  <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
-                    {contact.initials}
+          {dms.length && (
+            <div className="flex flex-col gap-1 mt-2">
+              {dms.map((dm) => {
+                const contact = getOtherMember(dm);
+                if (!contact) return null;
+                return (
+                  <div
+                    key={dm.id}
+                    className={`flex flex-row p-2 gap-2 items-center ml-2 mr-2 ${activeRoom?.id == dm.id ? "bg-[#1a1a1a]" : ""} rounded-md hover:bg-[#1a1a1a] cursor-pointer`}
+                    onClick={() => fetchActiveRoomData(dm.id)}
+                  >
+                    <div className="relative">
+                      <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                        {contact.initials}
+                      </div>
+                      <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-[#0d0d0d]"></div>
+                    </div>
+                    <div className="text-white text-[0.85rem]">
+                      {contact.name}
+                    </div>
                   </div>
-                  <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-[#0d0d0d]"></div>
-                </div>
-                <div className="text-white text-[0.85rem]">{contact.name}</div>
-              </div>
-            )})}
-          </div>
+                );
+              })}
+            </div>
           )}
         </div>
         <div className="mt-auto pt-3 pb-3 flex flex-row gap-2 items-center border-t border-[#1f1f1e] px-3 relative">
           <div className="w-7 h-7 rounded-full bg-[#1d1649] text-[#a096eb] flex items-center justify-center text-[0.75rem]">
             ME
           </div>
-          <span className="text-white text-[0.85rem]">You</span>
+          <span className="text-white text-[0.85rem]">{user?.name}</span>
 
           {/* Settings icon */}
           <Settings
@@ -301,7 +323,7 @@ const ChatRoom = () => {
               <div
                 className="flex items-center gap-3 px-3 py-2.5 hover:bg-[#2c2c2a] cursor-pointer"
                 onClick={() => {
-                  logout()
+                  logout();
                 }}
               >
                 <div className="w-7 h-7 rounded-full bg-[#2a0d0d] flex items-center justify-center">
@@ -324,9 +346,27 @@ const ChatRoom = () => {
           >
             <Menu size={20} />
           </button>
-          <Hash size={16} className="text-[#888] mr-1" />
-          <span className="text-white font-medium text-[0.95rem]">general</span>
+          {activeRoom?.name ? (
+            <div className="flex items-center gap-1 text-[#888] font-medium text-[0.95rem]">
+              <Hash size={12} />
+              <span>{activeRoom.name}</span>
+            </div>
+          ) : (
+            activeRoom && (
+              <div className="relative">
+                {(() => {
+                  const contact = getOtherMember(activeRoom);
+                  if (!contact) return null;
 
+                  return (
+                    <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                      {contact.initials}
+                    </div>
+                  );
+                })()}
+              </div>
+            )
+          )}
           {/* right side icons */}
           <div className="ml-auto flex items-center gap-3">
             <Users
@@ -404,7 +444,7 @@ const ChatRoom = () => {
 
         {/* Messages area */}
         <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
-          {messages.map((msg) => (
+          {prevMessages.map((msg) => (
             <div
               key={msg.id}
               className={`flex gap-3 ${msg.mine ? "flex-row-reverse" : "flex-row"}`}

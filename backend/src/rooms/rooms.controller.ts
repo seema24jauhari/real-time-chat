@@ -18,4 +18,10 @@ export class RoomsController {
     getRecentDms(@Req() req: Request & { user: { sub: string } }) {
         return this.roomsService.getRecentDms(req.user?.sub)
     }
+
+    @Post('recent/channels')
+    @HttpCode(200)
+    getRecentChannels(@Req() req: Request & { user: { sub: string } }) {
+        return this.roomsService.getRecentChannels(req.user?.sub)
+    }
 }

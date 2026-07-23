@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState } from "react";
 import api from '../api/axios'
 import { jwtDecode } from 'jwt-decode'
+import { useUser } from "../context/UserContext";
 
 
 const loginSchema = z.object({
@@ -14,6 +15,7 @@ const loginSchema = z.object({
 });
 
 type LoginForm = z.infer<typeof loginSchema>;
+
 
 function Login() {
     const {
@@ -27,6 +29,7 @@ function Login() {
     const navigate = useNavigate()
     const [apiError, setApiError] = useState('')
     const [showPassword, setShowPassword] = useState(false);
+    const { setUser } = useUser()
 
     const onSubmit = async (data: LoginForm) => {
     try {
@@ -40,9 +43,9 @@ function Login() {
         }
       }
       else{
-        const decoded: { sub: string } = jwtDecode(result.access_token)
         localStorage.setItem("token", result.access_token);
-        localStorage.setItem('userId', decoded.sub) // decode from JWT
+        const decoded: { sub: string, email: string, name: string } = jwtDecode(result.access_token)
+        setUser({ sub: decoded.sub, email: decoded.email, name: decoded.name })
         navigate("/chatroom");    
       }
     } catch (err: any) {
