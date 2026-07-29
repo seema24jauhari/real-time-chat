@@ -18,6 +18,8 @@ import { AuthGuard } from '@nestjs/passport';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { User } from 'src/users/schemas/user.schema';
 import { Document } from 'mongoose';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 interface AuthRequest extends express.Request {
   user: {
@@ -119,16 +121,13 @@ export class AuthController {
 
   @Post('forget-password')
   @HttpCode(200)
-  forgotPassword(@Body('email') email: string) {
-    return this.authService.forgotPassword(email)
+  forgotPassword(@Body() forgetPasswordDto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(forgetPasswordDto.email)
   }
 
   @Post('reset-password')
   @HttpCode(200)
-  resetPassword(
-    @Body('token') token: string,
-    @Body('password') password: string
-  ) {
-    return this.authService.resetPassword(token, password)
+  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
+    return this.authService.resetPassword(resetPasswordDto.token, resetPasswordDto.password)
   }
 }

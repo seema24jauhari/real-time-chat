@@ -137,22 +137,23 @@ export class RoomsService {
       .populate('members', '_id name email');
 
     const channels = [generalChannel!, ...otherChannels];
-
-    return channels.map((channel) => ({
-      id: channel._id,
-      type: channel.type,
-      name: channel.name,
-      members: channel.members.map((m: any) => ({
-        id: m._id,
-        name: m.name,
-        email: m.email,
-        initials: m.name
-          .split(' ')
-          .map((n: string) => n[0])
-          .join('')
-          .toUpperCase()
-          .slice(0, 2),
-      })),
-    }));
+    if(channels){
+      return channels.map((channel) => ({
+        id: channel._id,
+        type: channel.type,
+        name: channel.name,
+        members: channel.members.map((m: any) => ({
+          id: m._id,
+          name: m.name,
+          email: m.email,
+          initials: m.name
+            .split(' ')
+            .map((n: string) => n[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2),
+        })),
+      }));
+    }
   }
 }

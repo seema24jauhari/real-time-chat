@@ -18,7 +18,6 @@ import * as QRCode from 'qrcode';
 import { User } from 'src/users/schemas/user.schema';
 import { Document } from 'mongoose';
 import * as crypto from 'crypto'
-import * as bcrypt from 'bcrypt'
 import { MailService } from 'src/mail/mail.service';
 import { RoomsService } from 'src/rooms/rooms.service';
 

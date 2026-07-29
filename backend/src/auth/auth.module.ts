@@ -25,7 +25,7 @@ import { RoomsModule } from 'src/rooms/rooms.module';
         secret: config.getOrThrow<string>('JWT_SECRET'),
         signOptions: {
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-          expiresIn: `${config.get('JWT_EXPIRY') ?? '15'}m`,
+          expiresIn: `${config.get('JWT_EXPIRY') ?? '15m'}`,
         },
       }),
     }),

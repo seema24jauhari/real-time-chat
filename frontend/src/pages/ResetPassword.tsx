@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import api from "../api/axios";
-import { MessageCircle, Eye, EyeOff } from "lucide-react";
+import { MessageCircle, Eye, EyeOff, Lock } from "lucide-react";
 import z from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
@@ -9,9 +9,7 @@ import { useForm } from "react-hook-form";
 const resetPasswordSchema = z
   .object({
     password: z.string().min(8, "Password must be at least 8 characters"),
-    confirmPassword: z
-      .string()
-      .min(8, "Password must be at least 8 characters"),
+    confirmPassword: z.string().min(1, 'Required'),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -21,10 +19,6 @@ const resetPasswordSchema = z
 type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;
 
 const ResetPassword = () => {
-  const [password, setPassword] = useState("");
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  const token = searchParams.get("token");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [apiError, setApiError] = useState("");
@@ -34,7 +28,6 @@ const ResetPassword = () => {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
   } = useForm<ResetPasswordForm>({
     resolver: zodResolver(resetPasswordSchema),
   });
@@ -68,7 +61,7 @@ const ResetPassword = () => {
       {sent ? (
           <div className="mx-auto max-w-[1500] rounded-xl p-6 mx-auto min-h-[350px] w-[500px] bg-[#1a1a19] flex flex-col items-center justify-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#032042] flex items-center justify-center mx-auto">
-              <MessageCircle className="w-5 h-5 text-[#6da7ec]" />
+              <Lock className="w-5 h-5 text-[#6da7ec]" />
             </div>
             <div className="text-[1.3rem] text-[#fff] font-bold">
               Password updated successfully
@@ -99,7 +92,7 @@ const ResetPassword = () => {
               <button
                 type="button"
                 onClick={() => setShowPassword((state) => !state)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer"
               >
                 {!showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
               </button>
@@ -123,7 +116,7 @@ const ResetPassword = () => {
               <button
                 type="button"
                 onClick={() => setShowConfirmPassword((state) => !state)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer"
               >
                 {!showConfirmPassword ? (
                   <EyeOff size={20} />
@@ -140,7 +133,6 @@ const ResetPassword = () => {
           </div>
         </div>
         <div>
-          {" "}
           <button
             className="text-[0.9rem] w-full rounded-md p-[0.5rem] mt-4 bg-[#fff] text-[#242424] font-bold cursor-pointer hover:bg-[#f0f0f0]"
             disabled={isSubmitting}

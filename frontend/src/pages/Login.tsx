@@ -34,7 +34,7 @@ function Login() {
     const onSubmit = async (data: LoginForm) => {
     try {
       const res = await api.post('/auth/login', data, { withCredentials: true });
-      const result = await res.data;
+      const result = await res.data.data;
       if (result.error) {
         if (res.status === 401) {
           setApiError('Invalid email or password')
@@ -110,7 +110,7 @@ function Login() {
               />
               <button
                 type="button"
-                className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white'
+                className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer'
                 onClick={() => setShowPassword(state=>!state) }
               >
                 {(!showPassword)?<EyeOff size={20} />:<Eye size={20} />}

@@ -17,7 +17,6 @@ function ForgetPassword() {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
-    setError,
   } = useForm<ForgetPasswordForm>({
     resolver: zodResolver(forgetPasswordSchema),
   });

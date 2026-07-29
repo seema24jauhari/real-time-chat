@@ -7,6 +7,8 @@ import ProtectedRoute from './routes/ProtectedRoute'
 import ForgetPassword from './pages/ForgetPassword'
 import ResetPassword from './pages/ResetPassword'
 import { UserProvider } from './context/UserContext'
+import ChangePassword from './pages/ChangePassword'
+import UpdateProfile from './pages/UpdateProfile'
 
 function App() {
 
@@ -23,6 +25,8 @@ function App() {
             </Route>
             <Route element={<ProtectedRoute />}>
               <Route path='/chatroom' element={<ChatRoom />} />
+              <Route path='/change-password' element={<ChangePassword />} />
+              <Route path='/update-profile' element={<UpdateProfile />} />
           </Route>
           </Routes>
         </BrowserRouter>

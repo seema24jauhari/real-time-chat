@@ -32,7 +32,7 @@ function Register() {
       try {
         setApiError('')
         const res = await api.post('/auth/register', data, { withCredentials: true })
-        const result = res.data
+        const result = res.data.data
 
         if (result.email) {
           navigate('/')
@@ -92,7 +92,7 @@ function Register() {
                   />
                   <button
                     type="button"
-                    className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white'
+                    className='absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-white cursor-pointer'
                     onClick={() => setShowPassword(state=>!state) }
                   >
                     {(!showPassword)?<EyeOff size={20} />:<Eye size={20} />}
