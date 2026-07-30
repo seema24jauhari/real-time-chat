@@ -362,7 +362,9 @@ const ChatRoom = () => {
                         <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
                           {contact.initials}
                         </div>
-                        <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}></div>
+                        <div
+                          className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}
+                        ></div>
                       </div>
                       <div className="text-white text-[0.85rem]">
                         {contact.name}
@@ -471,7 +473,9 @@ const ChatRoom = () => {
                     return (
                       <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
                         {contact[0].initials}
-                        <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact[0].id) ? "bg-green-500" : "bg-[#555]"}`}></div>
+                        <div
+                          className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact[0].id) ? "bg-green-500" : "bg-[#555]"}`}
+                        ></div>
                       </div>
                     );
                   })()}
@@ -567,33 +571,45 @@ const ChatRoom = () => {
               return (
                 <div
                   key={msg._id}
-                  className={`flex gap-3 ${mine ? "flex-row-reverse" : "flex-row"}`}
+                  className={`flex gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
                 >
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-[0.75rem] font-medium flex-shrink-0 ${mine ? "bg-[#1d1649] text-[#a096eb]" : "bg-[#11260f] text-[#0ca30c]"}`}
-                  >
-                    {initials}
+                  <div className="relative group">
+                    {activeRoom?.type === "channel" && (
+                      <>
+                        <div
+                          title={msg.sender_id?.name}
+                          className={`w-8 h-8 rounded-full flex items-center justify-center text-[0.75rem] font-medium flex-shrink-0 ${
+                            mine
+                              ? "bg-[#1d1649] text-[#a096eb]"
+                              : "bg-[#11260f] text-[#0ca30c]"
+                          }`}
+                        >
+                          {initials}
+                        </div>
+
+                        <div className="absolute bottom-full right-[-2rem] -translate-x-1/2 mb-1 px-2 py-1 bg-[#2c2c2a] text-white text-[0.7rem] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
+                          {msg.sender_id?.name}
+                        </div>
+                      </>
+                    )}
                   </div>
                   <div
                     className={`flex flex-col max-w-[70%] ${mine ? "items-end" : "items-start"}`}
                   >
                     <div
-                      className={`flex items-baseline gap-2 mb-1 ${mine ? "flex-row-reverse" : "flex-row"}`}
-                    >
-                      <span className="text-white text-[0.8rem] font-medium">
-                        {msg.sender_id?.name}
-                      </span>
-                      <span className="text-[#555] text-[0.7rem]">
-                        {new Date(msg.createdAt).toLocaleTimeString([], {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        })}
-                      </span>
-                    </div>
-                    <div
-                      className={`px-3 py-2 rounded-lg text-[0.85rem] ${mine ? "bg-[#032042] text-[#6da7ec] rounded-tr-none" : "bg-[#1a1a1a] text-white rounded-tl-none border border-[#2c2c2a]"}`}
+                      className={`px-3 py-1 rounded-lg text-[0.85rem] ${mine ? "bg-[#032042] text-[#6da7ec] rounded-tr-none" : "bg-[#1a1a1a] text-white rounded-tl-none border border-[#2c2c2a]"}`}
                     >
                       {msg.content}
+                      <div
+                        className={`flex items-baseline gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
+                      >
+                        <span className="text-[#555] text-[0.7rem]">
+                          {new Date(msg.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </span>
+                      </div>
                     </div>
                     {mine && (
                       <span className="text-[0.65rem] text-[#555] mt-1">
@@ -679,7 +695,9 @@ const ChatRoom = () => {
                         <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
                           {contact.initials}
                         </div>
-                        <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}></div>
+                        <div
+                          className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}
+                        ></div>
                       </div>
                       <div className="text-white text-[0.85rem]">
                         {contact.name}
