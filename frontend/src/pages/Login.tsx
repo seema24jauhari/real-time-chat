@@ -96,17 +96,11 @@ function Login() {
             </div>
             <div>
               <div className="text-[0.8rem] text-left mt-4">Password</div>
-              {/* <input
-                type="password"
-                {...register("password")}
-                className="text-[0.9rem] w-full rounded-md p-[0.5rem] focus:border-[#6da7ec] focus:outline-none focus:ring-0 bg-[#2c2c2a] border border-[#1f1f1e] text-[#fff]"
-                placeholder="Enter your password"
-              /> */}
               <div className="relative mt-1">
                <input
                 type={(!showPassword)?"password":"text"}
-                {...register('password')} className='text-[0.9rem] w-full rounded-md p-[0.5rem] focus:border-[#6da7ec] focus:outline-none focus:ring-0 bg-[#2c2c2a] border border-[#1f1f1e] text-[#fff]' placeholder='Enter your password' 
-
+                onKeyDown={(e) => e.key === "Enter" && handleSubmit(onSubmit)}
+                {...register('password')} className='text-[0.9rem] w-full rounded-md p-[0.5rem] focus:border-[#6da7ec] focus:outline-none focus:ring-0 bg-[#2c2c2a] border border-[#1f1f1e] text-[#fff]' placeholder='Enter your password'
               />
               <button
                 type="button"

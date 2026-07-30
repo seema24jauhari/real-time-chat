@@ -54,7 +54,7 @@ const ChatRoom = () => {
   const [membersOpen, setMembersOpen] = useState(false);
   const activeRoomRef = useRef<Room | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
+  const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
 
   const { user } = useUser();
   const navigate = useNavigate();
@@ -136,7 +136,6 @@ const ChatRoom = () => {
       setPrevMessages([]);
     }
   };
-
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -251,6 +250,9 @@ const ChatRoom = () => {
       if (activeRoomRef.current?.id) {
         joinRoom(activeRoomRef.current.id);
       }
+      socket.emit("get_online_users", {}, (res) => {
+        setOnlineUsers(new Set(res.onlineUsers));
+      });
     });
 
     socket.on("disconnect", () => console.log("disconnected"));
@@ -259,6 +261,19 @@ const ChatRoom = () => {
     socket.on("receive_message", (msg) => {
       console.log("new message received:", msg);
       setPrevMessages((prev) => [...prev, msg]);
+    });
+
+    // inside socket useEffect
+    socket.on("user_online", ({ userId }) => {
+      setOnlineUsers((prev) => new Set([...prev, userId]));
+    });
+
+    socket.on("user_offline", ({ userId }) => {
+      setOnlineUsers((prev) => {
+        const next = new Set(prev);
+        next.delete(userId);
+        return next;
+      });
     });
 
     socket.connect();
@@ -347,7 +362,7 @@ const ChatRoom = () => {
                         <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
                           {contact.initials}
                         </div>
-                        <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-[#0d0d0d]"></div>
+                        <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}></div>
                       </div>
                       <div className="text-white text-[0.85rem]">
                         {contact.name}
@@ -456,6 +471,7 @@ const ChatRoom = () => {
                     return (
                       <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
                         {contact[0].initials}
+                        <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact[0].id) ? "bg-green-500" : "bg-[#555]"}`}></div>
                       </div>
                     );
                   })()}
@@ -663,7 +679,7 @@ const ChatRoom = () => {
                         <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
                           {contact.initials}
                         </div>
-                        <div className="absolute bottom-0 right-0 w-2 h-2 bg-green-500 rounded-full border border-[#0d0d0d]"></div>
+                        <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}></div>
                       </div>
                       <div className="text-white text-[0.85rem]">
                         {contact.name}
