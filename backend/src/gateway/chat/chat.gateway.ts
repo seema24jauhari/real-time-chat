@@ -10,6 +10,7 @@ import {
 import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { MessagesService } from '../../messages/messages.service';
+import { RedisService } from 'src/redis/redis.service';
 
 @WebSocketGateway({
   cors: {
@@ -20,10 +21,12 @@ import { MessagesService } from '../../messages/messages.service';
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
+  private onlineUsers = new Set<string>();
 
   constructor(
     private jwtService: JwtService,
     private messagesService: MessagesService,
+    private redisService: RedisService
   ) {}
 
   async handleConnection(client: Socket) {
@@ -46,6 +49,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // attach user to socket for later use
       client.data.user = payload;
+
+      // add to online set
+      await this.redisService.setOnline(payload.sub)
+
+      // broadcast to everyone that this user is online
+      this.server.emit('user_online', { userId: payload.sub });
       console.log('authenticated:', payload.sub);
     } catch (err) {
       console.log('invalid token — disconnecting');
@@ -54,6 +63,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   handleDisconnect(client: Socket) {
+    if (client.data.user?.sub) {
+      this.redisService.setOffline(client.data.user.sub);
+
+      // broadcast that user went offline
+      this.server.emit('user_offline', { userId: client.data.user.sub });
+    }
     console.log('disconnected:', client.id);
   }
 
@@ -108,5 +123,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     client.to(roomId).emit('user_stop_typing', {
       userId: client.data.user?.sub,
     });
+  }
+
+  // endpoint to get all online users
+  @SubscribeMessage('get_online_users')
+  async handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
+    return { onlineUsers: Array.from(await this.redisService.getOnlineUsers()) };
   }
 }

@@ -14,6 +14,7 @@ import 'http';
 import { JwtModule } from '@nestjs/jwt';
 import { RoomsModule } from './rooms/rooms.module';
 import { MessagesModule } from './messages/messages.module';
+import { RedisModule } from './redis/redis-module';
 
 declare module 'http' {
   interface IncomingMessage {
@@ -53,6 +54,7 @@ declare module 'http' {
     UsersModule,
     RoomsModule,
     MessagesModule,
+    RedisModule
   ],
   exports: [JwtModule], // is this here?
   controllers: [],

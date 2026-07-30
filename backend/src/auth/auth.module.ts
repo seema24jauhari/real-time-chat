@@ -8,7 +8,6 @@ import { ConfigService } from '@nestjs/config';
 import { Token, TokenSchema } from '../tokens/schemas/token.schema';
 import { UsersModule } from '../users/users.module';
 import { TokensModule } from '../tokens/tokens.module';
-import { RedisModule } from '../redis/redis-.module';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './jwt.strategy';
 import { DashboardModule } from '../dashboard/dashboard.module';
@@ -31,7 +30,6 @@ import { RoomsModule } from 'src/rooms/rooms.module';
     }),
     UsersModule,
     TokensModule,
-    RedisModule,
     PassportModule,
     DashboardModule,
     MailModule,
