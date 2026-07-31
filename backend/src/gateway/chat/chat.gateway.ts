@@ -11,6 +11,7 @@ import { Server, Socket } from 'socket.io';
 import { JwtService } from '@nestjs/jwt';
 import { MessagesService } from '../../messages/messages.service';
 import { RedisService } from 'src/redis/redis.service';
+import { Types } from 'mongoose';
 
 @WebSocketGateway({
   cors: {
@@ -88,8 +89,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     // save to MongoDB
     const message = await this.messagesService.create({
-      room_id: data.roomId,
-      sender_id: client.data.user?.sub,
+      room_id: new Types.ObjectId(data.roomId),
+      sender_id: new Types.ObjectId(client.data.user?.sub),
       content: data.content,
     });
 
@@ -112,13 +113,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     client.to(roomId).emit('user_typing', {
       userId: client.data.user?.sub,
+      name:client.data.user?.name
     });
   }
 
   @SubscribeMessage('typing_stop')
   handleTypingStop(
-    @ConnectedSocket() client: Socket,
     @MessageBody() roomId: string,
+    @ConnectedSocket() client: Socket,
   ) {
     client.to(roomId).emit('user_stop_typing', {
       userId: client.data.user?.sub,
@@ -129,5 +131,19 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('get_online_users')
   async handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
     return { onlineUsers: Array.from(await this.redisService.getOnlineUsers()) };
+  }
+
+  @SubscribeMessage('mark_read')
+  async handleMarkRead(@ConnectedSocket() client: Socket, @MessageBody() roomId: string) {
+      const userId = client.data.user?.sub
+
+      // update all unread messages in this room
+      await this.messagesService.markAllRead(roomId, userId)
+
+      // notify others in room that messages were read
+      client.to(roomId).emit('messages_read', {
+        roomId,
+        userId
+      })
   }
 }
