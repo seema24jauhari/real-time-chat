@@ -45,7 +45,7 @@ const UpdateProfile = () => {
     <div className="flex items-center justify-center h-screen bg-[#0d0d0d]">
         
       <div className="bg-[#1a1a19] rounded-xl p-8 w-[450px]">
-<button
+        <button
             onClick={() => navigate('/chatroom')}
             className="flex items-center gap-2 text-[#888] hover:text-white text-[0.8rem] mb-6 cursor-pointer"
             >

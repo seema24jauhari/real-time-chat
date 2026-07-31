@@ -36,6 +36,7 @@ interface Message {
   content: string;
   sender_id: { _id: string; name: string };
   createdAt: string;
+  read_by: string[]  // add this
 }
 
 const ChatRoom = () => {
@@ -55,6 +56,8 @@ const ChatRoom = () => {
   const activeRoomRef = useRef<Room | undefined>(undefined);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
+  const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
+  const typingTimeout = useRef<any>(null);
 
   const { user } = useUser();
   const navigate = useNavigate();
@@ -139,6 +142,13 @@ const ChatRoom = () => {
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if(prevMessages.length>0){
+      let count = prevMessages.length
+      let lastSenderId = prevMessages[count-1]?.sender_id?._id
+      if(lastSenderId!==user?.sub){
+        socket.emit('mark_read', activeRoom?.id) // mark as read
+      }
+    }
   };
 
   useEffect(() => {
@@ -171,6 +181,19 @@ const ChatRoom = () => {
     });
 
     setMessage(""); // clear input
+  };
+
+  const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setMessage(e.target.value);
+
+    // emit typing start
+    socket.emit("typing_start", activeRoom?.id);
+
+    // stop typing after 2 seconds of no input
+    clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => {
+      socket.emit("typing_stop", activeRoom?.id);
+    }, 2000);
   };
 
   useEffect(() => {
@@ -235,6 +258,7 @@ const ChatRoom = () => {
       const timer = setTimeout(() => {
         if (socket.connected) {
           joinRoom(activeRoom.id);
+          socket.emit('mark_read', activeRoom.id) // mark as read
         }
       }, 0);
 
@@ -275,6 +299,36 @@ const ChatRoom = () => {
         return next;
       });
     });
+
+    socket.on("user_typing", ({ userId, name }) => {
+      if(!typingUsers.has(userId)){
+        setTypingUsers(prev => {
+          const newMap = new Map(prev);
+          newMap.set(userId, name);
+          return newMap;
+        });
+      }
+    });
+
+    socket.on("user_stop_typing", ({ userId }) => {
+      setTypingUsers(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(userId);
+        return newMap;
+      });
+    });
+
+    socket.on('messages_read', ({ roomId, userId }) => {
+      // update messages that were read
+      setPrevMessages(prev =>
+        prev.map(msg => ({
+          ...msg,
+          read_by: msg?.read_by
+            ? [...msg?.read_by, userId]
+            : [userId]
+        }))
+      )
+    })
 
     socket.connect();
 
@@ -613,31 +667,31 @@ const ChatRoom = () => {
                     </div>
                     {mine && (
                       <span className="text-[0.65rem] text-[#555] mt-1">
-                        Read
+                        {msg.read_by?.length > 0 ? 'Read' : 'Sent'}
                       </span>
                     )}
                   </div>
                 </div>
               );
             })}
-            {/* typing indicator */}
-            <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.65rem]">
-                JC
-              </div>
-              <span className="text-[#555] text-[0.75rem] italic">
-                Jane is typing
-              </span>
-              <div className="flex gap-1">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="w-1.5 h-1.5 rounded-full bg-[#555] animate-pulse"
-                    style={{ animationDelay: `${i * 0.2}s` }}
-                  />
-                ))}
-              </div>
-            </div>
+           {typingUsers.size > 0 && (
+  <div className="flex items-center gap-2">
+    <span className="text-[#555] text-[0.75rem] italic">
+      {Array.from(typingUsers.values()).join(", ")}{" "}
+      {typingUsers.size === 1 ? "is" : "are"} typing
+    </span>
+
+    <div className="flex gap-1">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="w-1.5 h-1.5 rounded-full bg-[#555] animate-pulse"
+          style={{ animationDelay: `${i * 0.2}s` }}
+        />
+      ))}
+    </div>
+  </div>
+)}
             <div ref={messagesEndRef} /> {/* add this at the very end */}
           </div>
 
@@ -649,9 +703,10 @@ const ChatRoom = () => {
             <input
               type="text"
               value={message}
-              onChange={(e) => setMessage(e.target.value)}
+              // onChange={(e) => setMessage(e.target.value)}
               placeholder="Message"
               onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+              onChange={handleTyping}
               className="flex-1 bg-[#1a1a1a] text-white text-[0.85rem] rounded-md px-3 py-2 border border-[#2c2c2a] focus:outline-none focus:border-[#6da7ec]"
             />
             <button
