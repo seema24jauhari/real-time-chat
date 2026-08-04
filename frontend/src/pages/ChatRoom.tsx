@@ -36,7 +36,7 @@ interface Message {
   content: string;
   sender_id: { _id: string; name: string };
   createdAt: string;
-  read_by: string[]  // add this
+  read_by: string[]; // add this
 }
 
 const ChatRoom = () => {
@@ -54,10 +54,19 @@ const ChatRoom = () => {
   const [channels, setChannels] = useState<SearchUser[]>([]);
   const [membersOpen, setMembersOpen] = useState(false);
   const activeRoomRef = useRef<Room | undefined>(undefined);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
-  const [typingUsers, setTypingUsers] = useState<Map<string, string>>(new Map());
+  const [typingUsers, setTypingUsers] = useState<
+    Record<string, { id: string; name: string }[]>
+  >({});
   const typingTimeout = useRef<any>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [cursor, setCursor] = useState<string | null>(null); // NEW
+  const isInitialLoad = useRef(true);
+  const [pendingMessage, setPendingMessage] = useState<Map<string, number>>(
+    new Map(),
+  ); // [content, senderId]
 
   const { user } = useUser();
   const navigate = useNavigate();
@@ -116,6 +125,24 @@ const ChatRoom = () => {
       });
   };
 
+  const fetchUnreadMessages = async () => {
+    await api
+      .get("/rooms/unread-messages")
+      .then((res) => {
+        console.log("unread messages:", res.data.data);
+        setPendingMessage((prev) => {
+          const updated = new Map(prev);
+          res.data.data.forEach((item: { room_id: string; count: number }) => {
+            updated.set(item.room_id, item.count);
+          });
+          return updated;
+        });
+      })
+      .catch((err) => {
+        console.error("Error fetching recent Channels:", err);
+      });
+  };
+
   const fetchMessages = async (roomId: string, cursorId?: string) => {
     try {
       const url = cursorId
@@ -134,6 +161,28 @@ const ChatRoom = () => {
       }
 
       // set cursor to oldest message _id for next load
+      if (newMessages.length > 0) {
+        setCursor(newMessages[0]._id);
+      }
+
+      // if less than limit returned — no more messages
+      setHasMore(newMessages.length === 20);
+
+      let totalUnread = 0;
+      newMessages.map((msg) => {
+        if (
+          msg.sender_id?._id !== user?.sub &&
+          !msg.read_by?.includes(user?.sub || "")
+        ) {
+          totalUnread++;
+        }
+      });
+      setPendingMessage((prev) => {
+        const updated = new Map(prev);
+        updated.set(roomId, totalUnread);
+        return updated;
+      });
+      // set cursor to oldest message _id for next load
     } catch (err) {
       console.error("fetchMessages failed:", err);
       setPrevMessages([]);
@@ -141,19 +190,35 @@ const ChatRoom = () => {
   };
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    if(prevMessages.length>0){
-      let count = prevMessages.length
-      let lastSenderId = prevMessages[count-1]?.sender_id?._id
-      if(lastSenderId!==user?.sub){
-        socket.emit('mark_read', activeRoom?.id) // mark as read
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+    if (prevMessages.length > 0) {
+      let count = prevMessages.length;
+      let lastSenderId = prevMessages[count - 1]?.sender_id?._id;
+      if (lastSenderId !== user?.sub) {
+        socket.emit("mark_read", activeRoom?.id); // mark as read
+        // setPendingMessage((prev) => {
+        //   const updated = new Map(prev);
+        //   updated.set(activeRoom?.id, 0);
+        //   return updated;
+        // });
       }
     }
   };
 
   useEffect(() => {
-    scrollToBottom();
+    if (isInitialLoad.current && prevMessages.length > 0) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+        isInitialLoad.current = false;
+      }, 0);
+    }
   }, [prevMessages]);
+
+  useEffect(() => {
+    if (activeRoom?.id) {
+      fetchUnreadMessages();
+    }
+  }, []);
 
   const fetchActiveRoomData = (roomId: string, type = "dms") => {
     let roomData = [];
@@ -181,6 +246,18 @@ const ChatRoom = () => {
     });
 
     setMessage(""); // clear input
+    scrollToBottom(); // scroll after sending
+  };
+
+  const handleScroll = () => {
+    if (
+      messagesRef.current?.scrollTop === 0 &&
+      hasMore &&
+      activeRoom?.id &&
+      cursor
+    ) {
+      fetchMessages(activeRoom.id, cursor);
+    }
   };
 
   const handleTyping = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -253,12 +330,23 @@ const ChatRoom = () => {
     activeRoomRef.current = activeRoom;
 
     if (activeRoom?.id) {
+      setCursor(null);
+      setHasMore(true);
       setPrevMessages([]); // clear old messages
       fetchMessages(activeRoom.id); // load fresh
+      isInitialLoad.current = true;
+
+      // reset pending count immediately on room switch
+      setPendingMessage((prev) => {
+        const updated = new Map(prev);
+        updated.set(activeRoom.id, 0);
+        return updated;
+      });
+
       const timer = setTimeout(() => {
         if (socket.connected) {
           joinRoom(activeRoom.id);
-          socket.emit('mark_read', activeRoom.id) // mark as read
+          socket.emit("mark_read", activeRoom.id); // mark as read
         }
       }, 0);
 
@@ -283,8 +371,29 @@ const ChatRoom = () => {
 
     // ADD THIS
     socket.on("receive_message", (msg) => {
-      console.log("new message received:", msg);
+      console.log("[receive_message] msg:", msg);
+      console.log(
+        "[receive_message] activeRoomRef:",
+        activeRoomRef.current?.id,
+        "msg.room_id:",
+        msg.room_id,
+      );
+
       setPrevMessages((prev) => [...prev, msg]);
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+      }, 0);
+
+      // increment pending only if message is from another room
+      if (
+        msg.sender_id?._id !== user?.sub) {
+        setPendingMessage((prev) => {
+          const updated = new Map(prev);
+          console.log("[receive_message] incrementing pending for room:", msg.room_id);
+          updated.set(msg.room_id, (prev.get(msg.room_id) || 0) + 1);
+          return updated;
+        });
+      }
     });
 
     // inside socket useEffect
@@ -300,35 +409,31 @@ const ChatRoom = () => {
       });
     });
 
-    socket.on("user_typing", ({ userId, name }) => {
-      if(!typingUsers.has(userId)){
-        setTypingUsers(prev => {
-          const newMap = new Map(prev);
-          newMap.set(userId, name);
-          return newMap;
-        });
-      }
+    socket.on("user_typing", ({ roomId, userId, name }) => {
+      setTypingUsers((prev) => ({
+        ...prev,
+        [roomId]: prev[roomId]?.some((u) => u.id === userId)
+          ? prev[roomId]
+          : [...(prev[roomId] || []), { id: userId, name }],
+      }));
     });
 
-    socket.on("user_stop_typing", ({ userId }) => {
-      setTypingUsers(prev => {
-        const newMap = new Map(prev);
-        newMap.delete(userId);
-        return newMap;
-      });
+    socket.on("user_stop_typing", ({ roomId, userId }) => {
+      setTypingUsers((prev) => ({
+        ...prev,
+        [roomId]: (prev[roomId] || []).filter((u) => u.id !== userId),
+      }));
     });
 
-    socket.on('messages_read', ({ roomId, userId }) => {
+    socket.on("messages_read", ({ roomId, userId }) => {
       // update messages that were read
-      setPrevMessages(prev =>
-        prev.map(msg => ({
+      setPrevMessages((prev) =>
+        prev.map((msg) => ({
           ...msg,
-          read_by: msg?.read_by
-            ? [...msg?.read_by, userId]
-            : [userId]
-        }))
-      )
-    })
+          read_by: msg?.read_by ? [...msg?.read_by, userId] : [userId],
+        })),
+      );
+    });
 
     socket.connect();
 
@@ -346,7 +451,10 @@ const ChatRoom = () => {
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-black/40 z-40 md:hidden"
-          onClick={() => setSidebarOpen(false)}
+          onClick={() => {
+            setSidebarOpen(false);
+            setSettingsOpen(false);
+          }}
         />
       )}
 
@@ -358,6 +466,9 @@ const ChatRoom = () => {
         ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
         md:relative md:translate-x-0 md:w-[360px]
       `}
+        onClick={() => {
+          setSettingsOpen(false);
+        }}
       >
         <div className="p-3 flex flex-row gap-2 items-center border-b border-[#1f1f1e]">
           <div className="w-10 h-10 rounded-xl bg-[#032042] flex items-center justify-center">
@@ -366,12 +477,15 @@ const ChatRoom = () => {
           <span className="text-white font-semibold">WorkChat</span>
           <button
             className="md:hidden ml-auto text-white"
-            onClick={() => setSidebarOpen(false)}
+            onClick={() => {
+              setSidebarOpen(false);
+              setSettingsOpen(false);
+            }}
           >
             <X size={18} />
           </button>
         </div>
-        <div className="flex flex-col">
+        <div className="flex flex-col border-b border-[#1f1f1e] pb-4">
           <div className="pl-3 pr-3 text-left text-[0.8rem] text-[#888]">
             CHANNELS
           </div>
@@ -379,24 +493,32 @@ const ChatRoom = () => {
             {channels.length > 0 &&
               channels.map((channel) => (
                 <div
-                  className="flex flex-row items-center bg-[#032042] ml-3 mr-3 p-1 rounded-md cursor-pointer"
+                  className={`flex flex-row items-center ${activeRoom?.id == channel.id ? "bg-[#032042]" : ""}  ml-2 mr-2 p-1 rounded-md cursor-pointer`}
                   onClick={() => fetchActiveRoomData(channel.id, "channel")}
                 >
                   <div className="pl-2 pr-2 text-left text-[0.8rem] flex-1">
                     <div className="flex items-center gap-1">
-                      <Hash size={12} className="text-[#6da7ec]" />
-                      <span className="text-[#6da7ec]">{channel.name}</span>
+                      <Hash
+                        size={12}
+                        className={`activeRoom?.id == channel.id ? 'text-[#6da7ec]' : 'text-[#888]'`}
+                      />
+                      <span
+                        className={`activeRoom?.id == channel.id ? 'text-[#6da7ec]' : 'text-[#888]'`}
+                      >
+                        {channel.name}
+                      </span>
                     </div>
                   </div>
-
-                  <div className="text-[0.8rem] bg-white text-[#333] rounded-full w-5 h-5 flex items-center justify-center">
-                    2
-                  </div>
+                  {(pendingMessage.get(channel.id) ?? 0) > 0 && (
+                    <div className="text-[0.8rem] bg-white text-[#333] rounded-full w-5 h-5 flex items-center justify-center">
+                      {pendingMessage.get(channel.id)}
+                    </div>
+                  )}
                 </div>
               ))}
           </div>
         </div>
-        <div className="flex flex-col mt-4">
+        <div className="flex flex-col mt-2">
           <div className="pl-3 pr-3 text-left text-[0.8rem] text-[#888]">
             DMS
           </div>
@@ -409,20 +531,27 @@ const ChatRoom = () => {
                   return (
                     <div
                       key={dm.id}
-                      className={`flex flex-row p-2 gap-2 items-center ml-2 mr-2 ${activeRoom?.id == dm.id ? "bg-[#1a1a1a]" : ""} rounded-md hover:bg-[#1a1a1a] cursor-pointer`}
+                      className={`flex flex-row p-2  items-center ml-2 mr-2 ${activeRoom?.id == dm.id ? "bg-[#1a1a1a]" : ""} rounded-md hover:bg-[#1a1a1a] cursor-pointer`}
                       onClick={() => fetchActiveRoomData(dm.id)}
                     >
-                      <div className="relative">
-                        <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
-                          {contact.initials}
+                      <div className="flex flex-1 relative gap-2">
+                        <div className="relative">
+                          <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                            {contact.initials}
+                          </div>
+                          <div
+                            className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}
+                          ></div>
                         </div>
-                        <div
-                          className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}
-                        ></div>
+                        <div className="text-white text-[0.85rem]">
+                          {contact.name}
+                        </div>
                       </div>
-                      <div className="text-white text-[0.85rem]">
-                        {contact.name}
-                      </div>
+                      {(pendingMessage.get(dm.id) ?? 0) > 0 && (
+                        <div className="text-[0.8rem] bg-white text-[#333] rounded-full w-5 h-5 flex items-center justify-center">
+                          {pendingMessage.get(dm.id)}
+                        </div>
+                      )}
                     </div>
                   );
                 });
@@ -440,7 +569,10 @@ const ChatRoom = () => {
           <Settings
             size={16}
             className="ml-auto text-[#888] cursor-pointer hover:text-white"
-            onClick={() => setSettingsOpen(!settingsOpen)}
+            onClick={(e) => {
+              e.stopPropagation();
+              setSettingsOpen(true);
+            }}
           />
 
           {/* Dropdown menu */}
@@ -613,7 +745,11 @@ const ChatRoom = () => {
           )}
 
           {/* Messages area */}
-          <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4 min-h-0">
+          <div
+            className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4 min-h-0 pb-6"
+            ref={messagesRef}
+            onScroll={handleScroll}
+          >
             {prevMessages.map((msg) => {
               const mine = msg.sender_id?._id === user?.sub;
               const initials = msg.sender_id?.name
@@ -667,32 +803,33 @@ const ChatRoom = () => {
                     </div>
                     {mine && (
                       <span className="text-[0.65rem] text-[#555] mt-1">
-                        {msg.read_by?.length > 0 ? 'Read' : 'Sent'}
+                        {msg.read_by?.length > 0 ? "Read" : "Sent"}
                       </span>
                     )}
                   </div>
                 </div>
               );
             })}
-           {typingUsers.size > 0 && (
-  <div className="flex items-center gap-2">
-    <span className="text-[#555] text-[0.75rem] italic">
-      {Array.from(typingUsers.values()).join(", ")}{" "}
-      {typingUsers.size === 1 ? "is" : "are"} typing
-    </span>
-
-    <div className="flex gap-1">
-      {[0, 1, 2].map((i) => (
-        <div
-          key={i}
-          className="w-1.5 h-1.5 rounded-full bg-[#555] animate-pulse"
-          style={{ animationDelay: `${i * 0.2}s` }}
-        />
-      ))}
-    </div>
-  </div>
-)}
-            <div ref={messagesEndRef} /> {/* add this at the very end */}
+            {(typingUsers[activeRoom?.id ?? ""] ?? []).length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-[#555] text-[0.75rem] italic">
+                  {(typingUsers[activeRoom?.id ?? ""] ?? [])
+                    .map((u) => u.name)
+                    .join(", ")}{" "}
+                  is typing
+                </span>
+                <div className="flex gap-1">
+                  {[0, 1, 2].map((i) => (
+                    <div
+                      key={i}
+                      className="w-1.5 h-1.5 rounded-full bg-[#555] animate-pulse"
+                      style={{ animationDelay: `${i * 0.2}s` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} className="pb-2" />
           </div>
 
           {/* Input bar */}

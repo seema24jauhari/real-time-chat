@@ -137,7 +137,7 @@ export class RoomsService {
       .populate('members', '_id name email');
 
     const channels = [generalChannel!, ...otherChannels];
-    if(channels){
+    if (channels) {
       return channels.map((channel) => ({
         id: channel._id,
         type: channel.type,
@@ -155,5 +155,13 @@ export class RoomsService {
         })),
       }));
     }
+  }
+
+  async getUserRooms(userId: string) {
+    return this.roomModel
+      .find({
+        members: { $in: [userId] },
+      })
+      .select('_id');
   }
 }

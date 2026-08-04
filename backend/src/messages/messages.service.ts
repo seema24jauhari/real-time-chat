@@ -35,7 +35,7 @@ export class MessagesService {
   }
 
   async markAllRead(roomId: string, userId: string) {
-    const result = await this.messageModel.updateMany(
+    await this.messageModel.updateMany(
       {
         room_id: new Types.ObjectId(roomId),
         sender_id: { $ne: new Types.ObjectId(userId) },
@@ -44,6 +44,31 @@ export class MessagesService {
       { $addToSet: { read_by: new Types.ObjectId(userId) } },
     );
 
-    console.log('updateMany result:', result); // { matchedCount, modifiedCount, ... }
+  }
+
+  async unreadMessages(userId: string) {
+    const result = await this.messageModel.aggregate([
+      {
+        $match: {
+          sender_id: { $ne: new Types.ObjectId(userId) },
+          read_by: { $nin: [new Types.ObjectId(userId)] },
+        },
+      },
+      {
+        $group: {
+          _id: '$room_id',
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          room_id: '$_id',
+          count: 1,
+        },
+      },
+    ]);
+
+    return result;
   }
 }

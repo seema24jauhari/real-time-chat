@@ -12,6 +12,7 @@ import { JwtService } from '@nestjs/jwt';
 import { MessagesService } from '../../messages/messages.service';
 import { RedisService } from 'src/redis/redis.service';
 import { Types } from 'mongoose';
+import { RoomsService } from 'src/rooms/rooms.service';
 
 @WebSocketGateway({
   cors: {
@@ -27,7 +28,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   constructor(
     private jwtService: JwtService,
     private messagesService: MessagesService,
-    private redisService: RedisService
+    private redisService: RedisService,
+    private roomsService: RoomsService
   ) {}
 
   async handleConnection(client: Socket) {
@@ -50,6 +52,14 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       // attach user to socket for later use
       client.data.user = payload;
+
+      // join ALL user's rooms on connect
+      const rooms = await this.roomsService.getUserRooms(payload.sub)
+      rooms.forEach(room => {
+        client.join(room.id.toString())
+        console.log(`${payload.sub} joined room ${room.id.toString()}  ${typeof room.id}`)
+      })
+
 
       // add to online set
       await this.redisService.setOnline(payload.sub)
@@ -97,6 +107,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     // broadcast to everyone in room
     this.server.to(data.roomId).emit('receive_message', {
       _id: message._id,
+      room_id: data.roomId,
       content: message.content,
       sender_id: {
         _id: client.data.user?.sub,
@@ -113,7 +124,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     client.to(roomId).emit('user_typing', {
       userId: client.data.user?.sub,
-      name:client.data.user?.name
+      name:client.data.user?.name,
+      roomId
     });
   }
 
@@ -124,6 +136,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     client.to(roomId).emit('user_stop_typing', {
       userId: client.data.user?.sub,
+      roomId
     });
   }
 

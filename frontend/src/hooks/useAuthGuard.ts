@@ -1,53 +1,55 @@
 import { useEffect, useRef } from 'react'
 import { jwtDecode } from 'jwt-decode'
 import { useNavigate } from 'react-router-dom'
-import api from '../api/axios'
+import axios from 'axios'
 
 export const useAuthGuard = () => {
   const navigate = useNavigate()
-  const checking = useRef(false);
+  const checking = useRef(false)
 
   const verifyToken = async () => {
-    if (checking.current) return;
+    if (checking.current) return
+    checking.current = true
 
-    checking.current = true;
-
-    const token = localStorage.getItem('token')
-
-    // no token
-    if (!token || token === 'undefined') {
-      navigate('/')
-      return
-    }
-
-    // fake/corrupted token
     try {
-      jwtDecode(token)
-    } catch {
-      localStorage.removeItem('token')
-      navigate('/')
-      return
-    }
+      const token = localStorage.getItem('token')
 
-    // decode and check expiry
-    try {
-      const decoded: { exp: number } = jwtDecode(token)
+      // no token
+      if (!token || token === 'undefined') {
+        navigate('/')
+        return
+      }
+
+      // fake/corrupted token
+      let decoded: { exp: number }
+      try {
+        decoded = jwtDecode(token)
+      } catch {
+        localStorage.removeItem('token')
+        navigate('/')
+        return
+      }
+
       const now = Date.now() / 1000
 
-      // token still valid — no need to call API
+      // token still valid — nothing to do
       if (decoded.exp > now) return
 
-      // token expired — call verify-token
-      // axios interceptor will auto-refresh and retry
-      await api.get('/auth/verify-token')
+      // token expired — refresh directly (don't call a guard-protected
+      // endpoint, since it can only fail for an already-expired token)
+      const res = await axios.post(
+        '/api/auth/refresh',
+        {},
+        { withCredentials: true },
+      )
+      localStorage.setItem('token', res.data.access_token)
 
     } catch {
-      // refresh also failed
+      // refresh failed too — force re-login
       localStorage.removeItem('token')
       navigate('/')
-    }
-    finally{
-      checking.current = false;
+    } finally {
+      checking.current = false
     }
   }
 

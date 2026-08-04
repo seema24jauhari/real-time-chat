@@ -51,4 +51,12 @@ export class RoomsController {
   ) {
     return this.messagesService.findByRoom(id, cursor, limit);
   }
+
+  @Get('unread-messages')
+  @UseGuards(JwtAuthGuard)
+  getUnreadMessages(
+    @Req() req: Request & { user: { sub: string } }
+  ) {
+    return this.messagesService.unreadMessages(req.user?.sub);
+  }
 }
