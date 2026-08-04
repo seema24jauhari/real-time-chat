@@ -385,8 +385,7 @@ const ChatRoom = () => {
       }, 0);
 
       // increment pending only if message is from another room
-      if (
-        msg.sender_id?._id !== user?.sub) {
+      if (msg.sender_id?._id !== user?.sub && msg.room_id !== activeRoomRef.current?.id) {
         setPendingMessage((prev) => {
           const updated = new Map(prev);
           console.log("[receive_message] incrementing pending for room:", msg.room_id);
@@ -634,7 +633,9 @@ const ChatRoom = () => {
       </div>
 
       {/* ===== RIGHT PANEL ===== */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden" onClick={() => {
+            setSettingsOpen(false);
+          }}>
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex flex-row p-3 items-center border-b border-[#FFFFFF1A] bg-[#111111]">
