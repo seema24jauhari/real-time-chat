@@ -9,7 +9,7 @@ import {
   Hash,
   Users,
 } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { use, useEffect, useRef, useState } from "react";
 import socket from "../sockets/socket";
 import { useAuthGuard } from "../hooks/useAuthGuard";
 import api from "../api/axios";
@@ -78,9 +78,12 @@ const ChatRoom = () => {
     setDms((prev) => {
       const merged = [...prev, res.data.data];
       return merged.filter((room, index, self) => {
-        return index === self.findIndex((r) => r._id === room._id);
+        return index === self.findIndex((r) => {
+          return r.id === room.id
+        });
       });
     });
+    console.log("startDM res:", dms);
     setSearchQuery(""); // clear search
     setSearchOpen(false); // close search
   };
@@ -286,40 +289,9 @@ const ChatRoom = () => {
     }
   }, [searchQuery]);
 
-  // fake messages for now
-  // const messages = [
-  //   {
-  //     id: 1,
-  //     sender: "JC",
-  //     name: "Jane Cooper",
-  //     time: "10:32 AM",
-  //     text: "Hey team! The new design is looking great 🎨",
-  //     mine: false,
-  //   },
-  //   {
-  //     id: 2,
-  //     sender: "AR",
-  //     name: "Alex Ray",
-  //     time: "10:35 AM",
-  //     text: "Agreed! Can we ship it this week?",
-  //   },
-  //   {
-  //     id: 3,
-  //     sender: "ME",
-  //     name: "You",
-  //     time: "10:37 AM",
-  //     text: "Yes! I'll have it ready by Thursday 🚀",
-  //     mine: true,
-  //   },
-  //   {
-  //     id: 4,
-  //     sender: "JC",
-  //     name: "Jane Cooper",
-  //     time: "10:40 AM",
-  //     text: "Perfect. Let's sync tomorrow morning.",
-  //     mine: false,
-  //   },
-  // ];
+  useEffect(() => {
+    console.log("dms updated:", dms);
+  },[dms]);
 
   const joinRoom = (roomId: string) => {
     socket.emit("join_room", roomId, (ack) => {
@@ -533,7 +505,7 @@ const ChatRoom = () => {
                       className={`flex flex-row p-2  items-center ml-2 mr-2 ${activeRoom?.id == dm.id ? "bg-[#1a1a1a]" : ""} rounded-md hover:bg-[#1a1a1a] cursor-pointer`}
                       onClick={() => fetchActiveRoomData(dm.id)}
                     >
-                      <div className="flex flex-1 relative gap-2">
+                      <div className="flex flex-1 relative gap-2 items-center">
                         <div className="relative">
                           <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
                             {contact.initials}

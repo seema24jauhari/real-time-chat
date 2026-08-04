@@ -8,7 +8,7 @@ export class Room {
   @Prop({ required: true, enum: ['channel', 'dm'] })
   type: string
 
-  @Prop({ type: String, default: null, unique: true, sparse: true })
+  @Prop({ type: String, default: null})
   name: string | null
 
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
