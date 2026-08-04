@@ -517,11 +517,11 @@ const ChatRoom = () => {
               ))}
           </div>
         </div>
+        {dms.length > 0 && (
         <div className="flex flex-col mt-2">
           <div className="pl-3 pr-3 text-left text-[0.8rem] text-[#888]">
             DMS
           </div>
-          {dms.length > 0 && (
             <div className="flex flex-col gap-1 mt-2">
               {dms.map((dm) => {
                 const contacts = getOtherMember(dm?.members);
@@ -556,8 +556,8 @@ const ChatRoom = () => {
                 });
               })}
             </div>
-          )}
         </div>
+        )}
         <div className="mt-auto pt-3 pb-3 flex flex-row gap-2 items-center border-t border-[#1f1f1e] px-3 relative">
           <div className="w-7 h-7 rounded-full bg-[#1d1649] text-[#a096eb] flex items-center justify-center text-[0.75rem]">
             ME
