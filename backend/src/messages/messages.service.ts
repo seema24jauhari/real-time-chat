@@ -27,7 +27,7 @@ export class MessagesService {
 
     const messages = await this.messageModel
       .find(query)
-      .populate('sender_id', 'name email')
+      .populate('sender_id', 'name email avatarUrl') // populate sender_id with name, email, and avatarUrl
       .sort({ _id: -1 }) // newest first
       .limit(limit);
 

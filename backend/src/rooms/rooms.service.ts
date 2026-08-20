@@ -87,7 +87,7 @@ export class RoomsService {
         members: { $in: [userId] }, // any room where I am a member
       })
       .sort({ last_activity: -1 })
-      .populate('members', '_id name email');
+      .populate('members', '_id name email avatarUrl'); // add this
 
     if (rooms)
       return rooms.map((room) => {
@@ -99,6 +99,7 @@ export class RoomsService {
             id: m._id,
             name: m.name,
             email: m.email,
+            avatarUrl: m.avatarUrl,
             initials: m.name
               .split(' ')
               .map((n) => n[0])
@@ -125,7 +126,7 @@ export class RoomsService {
         name: 'general',
         members: { $in: [userId] },
       })
-      .populate('members', '_id name email');
+      .populate('members', '_id name email avatarUrl');
 
     const otherChannels = await this.roomModel
       .find({
@@ -134,7 +135,7 @@ export class RoomsService {
         members: { $in: [userId] },
       })
       .sort({ last_activity: -1 })
-      .populate('members', '_id name email');
+      .populate('members', '_id name email avatarUrl');
 
     const channels = [generalChannel!, ...otherChannels];
     if (channels) {
@@ -146,6 +147,7 @@ export class RoomsService {
           id: m._id,
           name: m.name,
           email: m.email,
+          avatarUrl: m.avatarUrl,
           initials: m.name
             .split(' ')
             .map((n: string) => n[0])

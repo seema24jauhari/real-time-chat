@@ -9,7 +9,7 @@ import {
   Hash,
   Users,
 } from "lucide-react";
-import { use, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import socket from "../sockets/socket";
 import { useAuthGuard } from "../hooks/useAuthGuard";
 import api from "../api/axios";
@@ -41,6 +41,7 @@ interface Message {
 
 const ChatRoom = () => {
   useAuthGuard(); // just call it directly, the hook handles useEffect internally
+  const { user } = useUser();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false); // NEW
@@ -56,6 +57,8 @@ const ChatRoom = () => {
   const activeRoomRef = useRef<Room | undefined>(undefined);
   const messagesRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const userRef = useRef(user);
+
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [typingUsers, setTypingUsers] = useState<
     Record<string, { id: string; name: string }[]>
@@ -68,7 +71,6 @@ const ChatRoom = () => {
     new Map(),
   ); // [content, senderId]
 
-  const { user } = useUser();
   const navigate = useNavigate();
   // on user click in search results:
   const startDM = async (userId: string) => {
@@ -78,9 +80,12 @@ const ChatRoom = () => {
     setDms((prev) => {
       const merged = [...prev, res.data.data];
       return merged.filter((room, index, self) => {
-        return index === self.findIndex((r) => {
-          return r.id === room.id
-        });
+        return (
+          index ===
+          self.findIndex((r) => {
+            return r.id === room.id;
+          })
+        );
       });
     });
     console.log("startDM res:", dms);
@@ -120,7 +125,6 @@ const ChatRoom = () => {
       .post("/rooms/recent/channels")
       .then((res) => {
         setChannels(res.data.data);
-        console.log("activemRoom1");
         setActiveRoom(res.data.data[0]);
       })
       .catch((err) => {
@@ -154,12 +158,13 @@ const ChatRoom = () => {
 
       const res = await api.get(url);
       const newMessages = res.data.data || [];
-
       if (cursorId) {
         // prepend older messages at top
+        console.log("fetchMessages: prepending older messages:", newMessages);
         setPrevMessages((prev) => [...newMessages, ...prev]);
       } else {
         // initial load — just set
+
         setPrevMessages(newMessages);
       }
 
@@ -170,21 +175,6 @@ const ChatRoom = () => {
 
       // if less than limit returned — no more messages
       setHasMore(newMessages.length === 20);
-
-      let totalUnread = 0;
-      newMessages.map((msg) => {
-        if (
-          msg.sender_id?._id !== user?.sub &&
-          !msg.read_by?.includes(user?.sub || "")
-        ) {
-          totalUnread++;
-        }
-      });
-      setPendingMessage((prev) => {
-        const updated = new Map(prev);
-        updated.set(roomId, totalUnread);
-        return updated;
-      });
       // set cursor to oldest message _id for next load
     } catch (err) {
       console.error("fetchMessages failed:", err);
@@ -209,6 +199,10 @@ const ChatRoom = () => {
   };
 
   useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  useEffect(() => {
     if (isInitialLoad.current && prevMessages.length > 0) {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
@@ -218,9 +212,7 @@ const ChatRoom = () => {
   }, [prevMessages]);
 
   useEffect(() => {
-    if (activeRoom?.id) {
-      fetchUnreadMessages();
-    }
+    fetchUnreadMessages();
   }, []);
 
   const fetchActiveRoomData = (roomId: string, type = "dms") => {
@@ -289,9 +281,7 @@ const ChatRoom = () => {
     }
   }, [searchQuery]);
 
-  useEffect(() => {
-    console.log("dms updated:", dms);
-  },[dms]);
+  useEffect(() => {}, [dms]);
 
   const joinRoom = (roomId: string) => {
     socket.emit("join_room", roomId, (ack) => {
@@ -304,7 +294,7 @@ const ChatRoom = () => {
     if (activeRoom?.id) {
       setCursor(null);
       setHasMore(true);
-      setPrevMessages([]); // clear old messages
+      // setPrevMessages([]); // clear old messages
       fetchMessages(activeRoom.id); // load fresh
       isInitialLoad.current = true;
 
@@ -351,16 +341,20 @@ const ChatRoom = () => {
         msg.room_id,
       );
 
-      setPrevMessages((prev) => [...prev, msg]);
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
       }, 0);
 
-      // increment pending only if message is from another room
-      if (msg.sender_id?._id !== user?.sub && msg.room_id !== activeRoomRef.current?.id) {
+      // only append if message belongs to active room
+      if (msg.room_id === activeRoomRef.current?.id) {
+        setPrevMessages((prev) => [...prev, msg]);
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+        }, 0);
+      } else if (msg.sender_id?._id !== userRef.current?.sub) {
+        // message from another room — increment pending count
         setPendingMessage((prev) => {
           const updated = new Map(prev);
-          console.log("[receive_message] incrementing pending for room:", msg.room_id);
           updated.set(msg.room_id, (prev.get(msg.room_id) || 0) + 1);
           return updated;
         });
@@ -471,10 +465,18 @@ const ChatRoom = () => {
                     <div className="flex items-center gap-1">
                       <Hash
                         size={12}
-                        className={`activeRoom?.id == channel.id ? 'text-[#6da7ec]' : 'text-[#888]'`}
+                        className={`${
+                          activeRoom?.id === channel.id
+                            ? "text-[#6da7ec]"
+                            : "text-[#888]"
+                        }`}
                       />
                       <span
-                        className={`activeRoom?.id == channel.id ? 'text-[#6da7ec]' : 'text-[#888]'`}
+                        className={`${
+                          activeRoom?.id === channel.id
+                            ? "text-[#6da7ec]"
+                            : "text-[#888]"
+                        }`}
                       >
                         {channel.name}
                       </span>
@@ -490,10 +492,10 @@ const ChatRoom = () => {
           </div>
         </div>
         {dms.length > 0 && (
-        <div className="flex flex-col mt-2">
-          <div className="pl-3 pr-3 text-left text-[0.8rem] text-[#888]">
-            DMS
-          </div>
+          <div className="flex flex-col mt-2">
+            <div className="pl-3 pr-3 text-left text-[0.8rem] text-[#888]">
+              DMS
+            </div>
             <div className="flex flex-col gap-1 mt-2">
               {dms.map((dm) => {
                 const contacts = getOtherMember(dm?.members);
@@ -507,9 +509,14 @@ const ChatRoom = () => {
                     >
                       <div className="flex flex-1 relative gap-2 items-center">
                         <div className="relative">
-                          <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                          {contact?.avatarUrl ? (
+                            <img src={contact?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
                             {contact.initials}
                           </div>
+                          )}
+                          
                           <div
                             className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}
                           ></div>
@@ -528,12 +535,24 @@ const ChatRoom = () => {
                 });
               })}
             </div>
-        </div>
+          </div>
         )}
         <div className="mt-auto pt-3 pb-3 flex flex-row gap-2 items-center border-t border-[#1f1f1e] px-3 relative">
-          <div className="w-7 h-7 rounded-full bg-[#1d1649] text-[#a096eb] flex items-center justify-center text-[0.75rem]">
-            ME
-          </div>
+          {user?.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              className="w-7 h-7 rounded-full object-cover"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-[#1d1649] text-[#a096eb] flex items-center justify-center text-[0.75rem]">
+              {user?.name
+                ?.split(" ")
+                .map((n) => n[0])
+                .join("")
+                .toUpperCase()
+                .slice(0, 2)}
+            </div>
+          )}
           <span className="text-white text-[0.85rem]">{user?.name}</span>
 
           {/* Settings icon */}
@@ -556,9 +575,21 @@ const ChatRoom = () => {
                   navigate("/update-profile");
                 }}
               >
-                <div className="w-7 h-7 rounded-full bg-[#1d1649] text-[#a096eb] flex items-center justify-center text-[0.75rem]">
-                  ME
-                </div>
+                {user?.avatarUrl ? (
+                  <img
+                    src={user.avatarUrl}
+                    className="w-7 h-7 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="w-7 h-7 rounded-full bg-[#1d1649] text-[#a096eb] flex items-center justify-center text-[0.75rem]">
+                    {user?.name
+                      ?.split(" ")
+                      .map((n) => n[0])
+                      .join("")
+                      .toUpperCase()
+                      .slice(0, 2)}
+                  </div>
+                )}
                 <div>
                   <div className="text-white text-[0.8rem] font-medium text-left">
                     Your Profile
@@ -605,9 +636,12 @@ const ChatRoom = () => {
       </div>
 
       {/* ===== RIGHT PANEL ===== */}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden" onClick={() => {
-            setSettingsOpen(false);
-          }}>
+      <div
+        className="flex-1 flex flex-col min-w-0 overflow-hidden"
+        onClick={() => {
+          setSettingsOpen(false);
+        }}
+      >
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
           <div className="flex flex-row p-3 items-center border-b border-[#FFFFFF1A] bg-[#111111]">
@@ -628,10 +662,15 @@ const ChatRoom = () => {
                   {(() => {
                     const contact = getOtherMember(activeRoom?.members);
                     if (!contact) return null;
-
                     return (
                       <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
-                        {contact[0].initials}
+                      {contact[0]?.avatarUrl ? (
+                            <img src={contact[0]?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                            {contact[0].initials}
+                          </div>
+                          )}                        
                         <div
                           className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact[0].id) ? "bg-green-500" : "bg-[#555]"}`}
                         ></div>
@@ -679,9 +718,14 @@ const ChatRoom = () => {
                     >
                       {/* avatar with online dot */}
                       <div className="relative flex-shrink-0">
-                        <div className="w-8 h-8 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem] font-medium">
-                          {user.initials}
-                        </div>
+                        {user?.avatarUrl ? (
+                            <img src={user?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                            {user.initials}
+                          </div>
+                          )}
+                       
                         <div
                           className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#1a1a1a] ${user.online ? "bg-green-500" : "bg-[#555]"}`}
                         />
@@ -723,66 +767,77 @@ const ChatRoom = () => {
             ref={messagesRef}
             onScroll={handleScroll}
           >
-            {prevMessages.map((msg) => {
-              const mine = msg.sender_id?._id === user?.sub;
-              const initials = msg.sender_id?.name
-                ?.split(" ")
-                .map((n) => n[0])
-                .join("")
-                .toUpperCase()
-                .slice(0, 2);
-              return (
-                <div
-                  key={msg._id}
-                  className={`flex gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
-                >
-                  <div className="relative group">
-                    {activeRoom?.type === "channel" && (
-                      <>
-                        <div
-                          title={msg.sender_id?.name}
-                          className={`w-8 h-8 rounded-full flex items-center justify-center text-[0.75rem] font-medium flex-shrink-0 ${
-                            mine
-                              ? "bg-[#1d1649] text-[#a096eb]"
-                              : "bg-[#11260f] text-[#0ca30c]"
-                          }`}
-                        >
-                          {initials}
-                        </div>
-
-                        <div className="absolute bottom-full right-[-2rem] -translate-x-1/2 mb-1 px-2 py-1 bg-[#2c2c2a] text-white text-[0.7rem] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
-                          {msg.sender_id?.name}
-                        </div>
-                      </>
-                    )}
-                  </div>
+            {prevMessages.length === 0 ? (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2 text-center">
+                <MessageCircle size={32} className="text-[#333]" />
+                <p className="text-[#555] text-[0.85rem]">No messages yet</p>
+                <p className="text-[#444] text-[0.75rem]">
+                  Send a message to start the conversation
+                </p>
+              </div>
+            ) : (
+              prevMessages.map((msg) => {
+                const mine = msg.sender_id?._id === user?.sub;
+                const initials = msg.sender_id?.name
+                  ?.split(" ")
+                  .map((n) => n[0])
+                  .join("")
+                  .toUpperCase()
+                  .slice(0, 2);
+                return (
                   <div
-                    className={`flex flex-col max-w-[70%] ${mine ? "items-end" : "items-start"}`}
+                    key={msg._id}
+                    className={`flex gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
                   >
-                    <div
-                      className={`px-3 py-1 rounded-lg text-[0.85rem] ${mine ? "bg-[#032042] text-[#6da7ec] rounded-tr-none" : "bg-[#1a1a1a] text-white rounded-tl-none border border-[#2c2c2a]"}`}
-                    >
-                      {msg.content}
-                      <div
-                        className={`flex items-baseline gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
-                      >
-                        <span className="text-[#555] text-[0.7rem]">
-                          {new Date(msg.createdAt).toLocaleTimeString([], {
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
-                        </span>
-                      </div>
+                    <div className="relative group">
+                        <>
+                        {msg.sender_id?.avatarUrl ? (
+                            <img src={msg.sender_id?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
+                          ) : (
+                           <div
+                            title={msg.sender_id?.name}
+                            className={`w-8 h-8 rounded-full flex items-center justify-center text-[0.75rem] font-medium flex-shrink-0 ${
+                              mine
+                                ? "bg-[#1d1649] text-[#a096eb]"
+                                : "bg-[#11260f] text-[#0ca30c]"
+                            }`}
+                          >
+                            {initials}
+                          </div>
+                          )}
+                          <div className="absolute bottom-full right-[-2rem] -translate-x-1/2 mb-1 px-2 py-1 bg-[#2c2c2a] text-white text-[0.7rem] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
+                            {msg.sender_id?.name}
+                          </div>
+                        </>
                     </div>
-                    {mine && (
-                      <span className="text-[0.65rem] text-[#555] mt-1">
-                        {msg.read_by?.length > 0 ? "Read" : "Sent"}
-                      </span>
-                    )}
+                    <div
+                      className={`flex flex-col max-w-[70%] ${mine ? "items-end" : "items-start"}`}
+                    >
+                      <div
+                        className={`px-3 py-1 rounded-lg text-[0.85rem] ${mine ? "bg-[#032042] text-[#6da7ec] rounded-tr-none" : "bg-[#1a1a1a] text-white rounded-tl-none border border-[#2c2c2a]"}`}
+                      >
+                        {msg.content}
+                        <div
+                          className={`flex items-baseline gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
+                        >
+                          <span className="text-[#555] text-[0.7rem]">
+                            {new Date(msg.createdAt).toLocaleTimeString([], {
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                      {mine && (
+                        <span className="text-[0.65rem] text-[#555] mt-1">
+                          {msg.read_by?.length > 0 ? "Read" : "Sent"}
+                        </span>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
             {(typingUsers[activeRoom?.id ?? ""] ?? []).length > 0 && (
               <div className="flex items-center gap-2">
                 <span className="text-[#555] text-[0.75rem] italic">
@@ -857,9 +912,13 @@ const ChatRoom = () => {
                       className="flex flex-row p-2 gap-2 items-center ml-2 mr-2 rounded-md"
                     >
                       <div className="relative">
-                        <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
-                          {contact.initials}
-                        </div>
+                        {contact?.avatarUrl ? (
+                            <img src={contact?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                            {contact.initials}
+                          </div>
+                          )}
                         <div
                           className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}
                         ></div>

@@ -25,10 +25,10 @@ interface JwtPayload {
   sub: string;
   email: string;
   name: string;
-  roles: string[];
   exp?: number;
   iat?: number;
   password?: string;
+  avatarUrl?: string;
 }
 
 @Injectable()
@@ -60,7 +60,7 @@ export class AuthService {
     );
 
     await this.roomService.addToDefaultChannels(user._id)
-    return { id: user._id, email: user.email, roles: user.roles };
+    return { id: user._id, email: user.email };
   }
 
   async login(
@@ -91,7 +91,7 @@ export class AuthService {
       sub: user._id,
       email: user.email,
       name: user.name,
-      roles: user.roles,
+      avatarUrl: user.avatarUrl
     });
 
     const payload = {
@@ -99,7 +99,7 @@ export class AuthService {
       email: email,
       name: user.name,
       password: password,
-      roles: user.roles,
+      avatarUrl: user.avatarUrl,
     };
     const refresh_token = this.jwtService.sign(payload, {
       secret: this.config.get<string>('REFRESH_SECRET'),
@@ -124,7 +124,7 @@ export class AuthService {
       userId: user._id,
       correlationId: req.correlationId,
     });
-    return { access_token, name: user.name, roles: user.roles };
+    return { access_token, name: user.name};
   }
 
   // auth.service.ts
@@ -154,11 +154,11 @@ export class AuthService {
       const access_token = this.jwtService.sign({
         sub: payload.sub,
         email: payload.email,
-        roles: payload.roles,
         name: payload.name,
+        avatarUrl: payload.avatarUrl
       });
 
-      return { access_token, name: payload.name, roles: payload.roles };
+      return { access_token, name: payload.name};
     } catch {
       throw new UnauthorizedException('Invalid or expired refresh token');
     }
@@ -188,7 +188,6 @@ export class AuthService {
       sub: user._id.toString(),
       email: user.email,
       name: user.name,
-      roles: user.roles,
     };
     const access_token = this.jwtService.sign(payload);
     const refresh_token = this.jwtService.sign(
@@ -265,7 +264,6 @@ export class AuthService {
     const access_token = this.jwtService.sign({
       sub: user.id,
       email: user.email,
-      roles: user.roles,
     });
 
     return {

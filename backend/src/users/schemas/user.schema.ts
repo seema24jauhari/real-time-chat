@@ -19,9 +19,6 @@ export class User {
   @Prop({ required: true, select: false })
   password_hash: string
 
-  @Prop({ type: [String], default: ['user'] })
-  roles: string[]
-
   @Prop({ select: false, default: null })
   mfa_secret?: string
 
@@ -42,6 +39,8 @@ export class User {
 
   @Prop({ type: Date, default: null, select: false })
   resetTokenExpiry: Date | null
+
+  @Prop({ default: null }) avatarUrl: string
 }
 
 export const UserSchema = SchemaFactory.createForClass(User)

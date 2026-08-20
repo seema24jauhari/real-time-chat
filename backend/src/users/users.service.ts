@@ -14,7 +14,29 @@ import { UpdatePasswordDto } from './dto/update-password.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+  ) {}
+
+  async findById(userId: string) {
+    const result = await this.userModel
+      .findById(userId)
+      .select('name email avatarUrl');
+
+    if (!result) {
+      return null;
+    }
+
+    const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000';
+
+    if (result.avatarUrl) {
+      result.avatarUrl = `${baseUrl}${result.avatarUrl}`;
+    }
+
+    console.log('User found:', result);
+
+    return result;
+  }
 
   findByEmail(email: string) {
     return this.userModel.findOne({ email });
@@ -63,13 +85,14 @@ export class UsersService {
         name: { $regex: q, $options: 'i' },
         _id: { $ne: userId }, // exclude current user
       })
-      .select('_id name email')
+      .select('_id name email avatarUrl')
       .limit(10);
 
     return users.map((user) => ({
       id: user._id,
       email: user.email,
       name: user.name,
+      avatarUrl: user.avatarUrl,
       initials: user.name
         .split(' ')
         .map((n) => n[0])
@@ -96,8 +119,7 @@ export class UsersService {
       user.password_hash,
       updatePasswordDto.currentPassword,
     );
-    if (!isMatch)
-      throw new NotFoundException('Current password is incorrect');
+    if (!isMatch) throw new NotFoundException('Current password is incorrect');
 
     // hash new password and save
     user.password_hash = await argon2.hash(updatePasswordDto.newPassword, {
@@ -106,5 +128,17 @@ export class UsersService {
 
     await user.save();
     return { message: 'Password updated successfully' };
+  }
+
+  async updateProfile(userId: string, name: string, avatarUrl?: string) {
+    const update: any = { name };
+    if (avatarUrl) update.avatarUrl = avatarUrl;
+
+    const user = await this.userModel
+      .findByIdAndUpdate(userId, update, { new: true })
+      .select('name email avatarUrl');
+
+    if (!user) throw new NotFoundException('User not found');
+    return { name:user.name, avatarUrl:user.avatarUrl };
   }
 }

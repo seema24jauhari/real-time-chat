@@ -8,9 +8,12 @@ import {
 import cookieParser from 'cookie-parser'; // ← default import (no * as)
 import { GlobalExceptionFilter } from './common/filters/global-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
+import { NestExpressApplication } from '@nestjs/platform-express'
+import { join } from 'path'
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule,{ cors: false });  
+  const app = await NestFactory.create<NestExpressApplication>(AppModule)
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), { prefix: '/uploads' })
   app.use(cookieParser()); // ← must be here
   app.useGlobalFilters(new GlobalExceptionFilter());
   app.useGlobalInterceptors(new TransformInterceptor());

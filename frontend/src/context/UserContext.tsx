@@ -5,25 +5,39 @@ interface User {
   sub: string;
   email: string;
   name: string;
+  avatarUrl: string | null;
 }
 
 interface UserContextType {
   user: User | null;
   setUser: (user: User | null) => void;
+  updateUser: (updates: Partial<User>) => void  // add this
 }
 
 const UserContext = createContext<UserContextType | null>(null);
+
+// update helper that saves to localStorage too
+const updateUser = (updates: Partial<User>) => {
+  setUser(prev => {
+    if (!prev) return null
+    const updated = { ...prev, ...updates }
+    if (updates.name) localStorage.setItem('userName', updates.name)
+    if (updates.avatarUrl) localStorage.setItem('userAvatar', updates.avatarUrl)
+    return updated
+  })
+}
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
     const token = localStorage.getItem("token");
     if (!token) return null;
     try {
-     const decoded: { sub: string, email: string, name: string } = jwtDecode(token)
+     const decoded: { sub: string, email: string, name: string, avatarUrl: string | null } = jwtDecode(token)
       return {
         sub: decoded.sub,
         email: decoded.email,
-        name: decoded.name,
+        name: localStorage.getItem('userName') || decoded.name,
+        avatarUrl: localStorage.getItem('userAvatar') || decoded.avatarUrl || null
       };
     } catch {
       return null;
