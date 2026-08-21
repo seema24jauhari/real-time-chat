@@ -36,7 +36,9 @@ interface Message {
   content: string;
   sender_id: { _id: string; name: string };
   createdAt: string;
-  read_by: string[]; // add this
+  read_by: string[]; 
+  type?: 'text' | 'image' | 'file'
+  filename?: string
 }
 
 const ChatRoom = () => {
@@ -58,6 +60,8 @@ const ChatRoom = () => {
   const messagesRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const userRef = useRef(user);
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [uploading, setUploading] = useState(false)
 
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [typingUsers, setTypingUsers] = useState<
@@ -267,6 +271,37 @@ const ChatRoom = () => {
       socket.emit("typing_stop", activeRoom?.id);
     }, 2000);
   };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file || !activeRoom?.id) return
+
+    try {
+      setUploading(true)
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const res = await api.post('/messages/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
+
+      // send message with file URL
+      socket.emit('send_message', {
+        roomId: activeRoom.id,
+        content: res.data.data.url,        // S3 URL as message content
+        type: file.type.startsWith('image') ? 'image' : 'file',
+        filename: res.data.data.filename
+      })
+
+      
+
+    } catch (err) {
+      console.error('Upload failed:', err)
+    } finally {
+      setUploading(false)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
 
   useEffect(() => {
     fetchRecentDms();
@@ -816,7 +851,26 @@ const ChatRoom = () => {
                       <div
                         className={`px-3 py-1 rounded-lg text-[0.85rem] ${mine ? "bg-[#032042] text-[#6da7ec] rounded-tr-none" : "bg-[#1a1a1a] text-white rounded-tl-none border border-[#2c2c2a]"}`}
                       >
-                        {msg.content}
+{msg.type === 'image' ? (
+  <img
+    src={msg.content}
+    alt="attachment"
+    className="max-w-[200px] rounded-lg cursor-pointer"
+    onClick={() => window.open(msg.content, '_blank')}
+  />
+) : msg.type === 'file' ? (
+  <a
+    href={msg.content}
+    target="_blank"
+    rel="noreferrer"
+    className="flex items-center gap-2 underline text-[0.8rem]"
+  >
+    <Paperclip size={14} />
+    {msg.filename || 'Download file'}
+  </a>
+) : (
+  msg.content
+)}
                         <div
                           className={`flex items-baseline gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
                         >
@@ -862,9 +916,25 @@ const ChatRoom = () => {
 
           {/* Input bar */}
           <div className="p-3 border-t border-[#FFFFFF1A] bg-[#111111] flex items-center gap-2">
-            <button className="text-[#888] hover:text-white flex-shrink-0">
-              <Paperclip size={18} />
-            </button>
+            {/* hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept="image/*,.pdf"
+              onChange={handleFileUpload}
+            />
+            <button
+  className="text-[#888] hover:text-white flex-shrink-0"
+  onClick={() => fileInputRef.current?.click()}
+  disabled={uploading}
+>
+  {uploading ? (
+    <div className="w-4 h-4 border-2 border-[#6da7ec] border-t-transparent rounded-full animate-spin" />
+  ) : (
+    <Paperclip size={18} />
+  )}
+</button>
             <input
               type="text"
               value={message}
@@ -874,6 +944,7 @@ const ChatRoom = () => {
               onChange={handleTyping}
               className="flex-1 bg-[#1a1a1a] text-white text-[0.85rem] rounded-md px-3 py-2 border border-[#2c2c2a] focus:outline-none focus:border-[#6da7ec]"
             />
+            
             <button
               onClick={sendMessage}
               className="bg-[#032042] hover:bg-[#053060] p-2 rounded-md flex-shrink-0"

@@ -69,9 +69,9 @@ const UpdateProfile = () => {
         name: res.data.data.name,
         avatarUrl: res.data.data.avatarUrl
       })
+            console.log("Submitting profile update:", res.data.data);
 
       setSuccess(true);
-      // localStorage.setItem('token', res.data.access_token)
       setTimeout(() => navigate("/chatroom"), 2000);
     } catch (err: any) {
       setApiError(err.response?.data?.message || "Something went wrong");

@@ -16,39 +16,41 @@ interface UserContextType {
 
 const UserContext = createContext<UserContextType | null>(null);
 
-// update helper that saves to localStorage too
-const updateUser = (updates: Partial<User>) => {
-  setUser(prev => {
-    if (!prev) return null
-    const updated = { ...prev, ...updates }
-    if (updates.name) localStorage.setItem('userName', updates.name)
-    if (updates.avatarUrl) localStorage.setItem('userAvatar', updates.avatarUrl)
-    return updated
-  })
-}
 
 export const UserProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(() => {
-    const token = localStorage.getItem("token");
-    if (!token) return null;
+    const token = localStorage.getItem("token")
+    if (!token) return null
     try {
-     const decoded: { sub: string, email: string, name: string, avatarUrl: string | null } = jwtDecode(token)
+      const decoded: { sub: string, email: string, name: string, avatarUrl: string | null } = jwtDecode(token)
       return {
         sub: decoded.sub,
         email: decoded.email,
         name: localStorage.getItem('userName') || decoded.name,
         avatarUrl: localStorage.getItem('userAvatar') || decoded.avatarUrl || null
-      };
+      }
     } catch {
-      return null;
+      return null
     }
-  });
+  })
+
+  // move inside component so it has access to setUser
+  const updateUser = (updates: Partial<User>) => {
+    setUser(prev => {
+      if (!prev) return null
+      const updated = { ...prev, ...updates }
+      if (updates.name) localStorage.setItem('userName', updates.name)
+      if (updates.avatarUrl) localStorage.setItem('userAvatar', updates.avatarUrl)
+      return updated
+    })
+  }
+
   return (
-    <UserContext.Provider value={{ user, setUser }}>
+    <UserContext.Provider value={{ user, setUser, updateUser }}>
       {children}
     </UserContext.Provider>
-  );
-};
+  )
+}
 
 export const useUser = () => {
   const ctx = useContext(UserContext);

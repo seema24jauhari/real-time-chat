@@ -29,7 +29,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
     private jwtService: JwtService,
     private messagesService: MessagesService,
     private redisService: RedisService,
-    private roomsService: RoomsService
+    private roomsService: RoomsService,
   ) {}
 
   async handleConnection(client: Socket) {
@@ -54,15 +54,16 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       client.data.user = payload;
 
       // join ALL user's rooms on connect
-      const rooms = await this.roomsService.getUserRooms(payload.sub)
-      rooms.forEach(room => {
-        client.join(room.id.toString())
-        console.log(`${payload.sub} joined room ${room.id.toString()}  ${typeof room.id}`)
-      })
-
+      const rooms = await this.roomsService.getUserRooms(payload.sub);
+      rooms.forEach((room) => {
+        client.join(room.id.toString());
+        console.log(
+          `${payload.sub} joined room ${room.id.toString()}  ${typeof room.id}`,
+        );
+      });
 
       // add to online set
-      await this.redisService.setOnline(payload.sub)
+      await this.redisService.setOnline(payload.sub);
 
       // broadcast to everyone that this user is online
       this.server.emit('user_online', { userId: payload.sub });
@@ -95,23 +96,27 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage('send_message')
   async handleMessage(
     @ConnectedSocket() client: Socket,
-    @MessageBody() data: { roomId: string; content: string },
+    @MessageBody()
+    data: { roomId: string; content: string; type?: string; filename?: string },
   ) {
-    // save to MongoDB
     const message = await this.messagesService.create({
       room_id: new Types.ObjectId(data.roomId),
       sender_id: new Types.ObjectId(client.data.user?.sub),
       content: data.content,
+      type: data.type || 'text',
+      filename: data.filename,
     });
 
-    // broadcast to everyone in room
     this.server.to(data.roomId).emit('receive_message', {
       _id: message._id,
       room_id: data.roomId,
       content: message.content,
+      type: message.type,
+      filename: message.filename,
       sender_id: {
         _id: client.data.user?.sub,
         name: client.data.user?.name,
+        avatarUrl: client.data.user?.avatarUrl,
       },
       createdAt: message.createdAt,
     });
@@ -124,8 +129,8 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     client.to(roomId).emit('user_typing', {
       userId: client.data.user?.sub,
-      name:client.data.user?.name,
-      roomId
+      name: client.data.user?.name,
+      roomId,
     });
   }
 
@@ -136,27 +141,32 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ) {
     client.to(roomId).emit('user_stop_typing', {
       userId: client.data.user?.sub,
-      roomId
+      roomId,
     });
   }
 
   // endpoint to get all online users
   @SubscribeMessage('get_online_users')
   async handleGetOnlineUsers(@ConnectedSocket() client: Socket) {
-    return { onlineUsers: Array.from(await this.redisService.getOnlineUsers()) };
+    return {
+      onlineUsers: Array.from(await this.redisService.getOnlineUsers()),
+    };
   }
 
   @SubscribeMessage('mark_read')
-  async handleMarkRead(@ConnectedSocket() client: Socket, @MessageBody() roomId: string) {
-      const userId = client.data.user?.sub
+  async handleMarkRead(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() roomId: string,
+  ) {
+    const userId = client.data.user?.sub;
 
-      // update all unread messages in this room
-      await this.messagesService.markAllRead(roomId, userId)
+    // update all unread messages in this room
+    await this.messagesService.markAllRead(roomId, userId);
 
-      // notify others in room that messages were read
-      client.to(roomId).emit('messages_read', {
-        roomId,
-        userId
-      })
+    // notify others in room that messages were read
+    client.to(roomId).emit('messages_read', {
+      roomId,
+      userId,
+    });
   }
 }

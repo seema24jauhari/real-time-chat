@@ -44,8 +44,8 @@ function Login() {
       }
       else{
         localStorage.setItem("token", result.access_token);
-        const decoded: { sub: string, email: string, name: string } = jwtDecode(result.access_token)
-        setUser({ sub: decoded.sub, email: decoded.email, name: decoded.name })
+        const decoded: { sub: string, email: string, name: string, avatarUrl: string | null } = jwtDecode(result.access_token)
+        setUser({ sub: decoded.sub, email: decoded.email, name: decoded.name, avatarUrl: decoded.avatarUrl })
         navigate("/chatroom");    
       }
     } catch (err: any) {

@@ -12,9 +12,11 @@ export class MessagesService {
   async create(data: {
     room_id: Types.ObjectId;
     sender_id: Types.ObjectId;
-    content: string;
+    content?: string;
+    type?: string;
+    filename?: string;
   }) {
-    return this.messageModel.create(data);
+    return this.messageModel.create({...data, type: data.type || 'text'});
   }
 
   async findByRoom(roomId: string, cursor?: string, limit = 20) {

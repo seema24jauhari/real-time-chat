@@ -14,11 +14,17 @@ export class Message {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   sender_id: Types.ObjectId
 
-  @Prop({ required: true })
+  @Prop({ required: true  })
   content: string
 
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   read_by: Types.ObjectId[]
+
+  @Prop({ default: 'text', enum: ['text', 'image', 'file'] })
+  type: string
+
+  @Prop({ default: null })
+  filename: string
 }
 
 export const MessageSchema = SchemaFactory.createForClass(Message)

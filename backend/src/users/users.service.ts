@@ -27,10 +27,9 @@ export class UsersService {
       return null;
     }
 
-    const baseUrl = process.env.BASE_URL ?? 'http://localhost:3000';
 
     if (result.avatarUrl) {
-      result.avatarUrl = `${baseUrl}${result.avatarUrl}`;
+      result.avatarUrl = result.avatarUrl;
     }
 
     console.log('User found:', result);
