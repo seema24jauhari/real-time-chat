@@ -98,7 +98,6 @@ export class AuthService {
       sub: user._id,
       email: email,
       name: user.name,
-      password: password,
       avatarUrl: user.avatarUrl,
     };
     const refresh_token = this.jwtService.sign(payload, {

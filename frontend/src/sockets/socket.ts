@@ -1,8 +1,9 @@
 import { io } from 'socket.io-client'
+import { getAccessToken } from '../api/axios'
 
 const socket = io('/', {
   auth: (cb) => {
-    cb({ token: localStorage.getItem('token') })
+    cb({ token: getAccessToken() })
   },
   autoConnect: false,
   path: '/socket.io'

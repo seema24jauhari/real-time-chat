@@ -7,6 +7,7 @@ import { useState } from "react";
 import api from '../api/axios'
 import { jwtDecode } from 'jwt-decode'
 import { useUser } from "../context/UserContext";
+import { setAccessToken } from '../api/axios'
 
 
 const loginSchema = z.object({
@@ -43,7 +44,8 @@ function Login() {
         }
       }
       else{
-        localStorage.setItem("token", result.access_token);
+        // localStorage.setItem("token", result.access_token);
+        setAccessToken(result.access_token)  // memory only
         const decoded: { sub: string, email: string, name: string, avatarUrl: string | null } = jwtDecode(result.access_token)
         setUser({ sub: decoded.sub, email: decoded.email, name: decoded.name, avatarUrl: decoded.avatarUrl })
         navigate("/chatroom");    

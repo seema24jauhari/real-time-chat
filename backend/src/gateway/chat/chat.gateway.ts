@@ -45,7 +45,6 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
       }
 
       // verify JWT
-      console.log('authenticating token:', token);
       const payload = await this.jwtService.verifyAsync(token, {
         secret: process.env.JWT_SECRET,
       });
@@ -85,12 +84,22 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   @SubscribeMessage('join_room')
-  handleJoinRoom(
+  async handleJoinRoom(
     @ConnectedSocket() client: Socket,
     @MessageBody() roomId: string,
   ) {
-    client.join(roomId);
-    console.log(`${client.data.user?.sub} joined room ${roomId}`);
+    // verify user is actually a member of this room
+    const room = await this.roomsService.findById(roomId)
+    const isMember = room?.members.some(
+      m => m.toString() === client.data.user?.sub
+    )
+    
+    if (!isMember) {
+      return { error: 'Not authorized to join this room' }
+    }
+
+    client.join(roomId)
+    return { success: true }
   }
 
   @SubscribeMessage('send_message')

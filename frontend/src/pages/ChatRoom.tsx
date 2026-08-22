@@ -12,7 +12,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import socket from "../sockets/socket";
 import { useAuthGuard } from "../hooks/useAuthGuard";
-import api from "../api/axios";
+import api, { setAccessToken } from "../api/axios";
 import { useUser } from "../context/UserContext";
 import { useNavigate } from "react-router-dom";
 
@@ -22,6 +22,7 @@ interface SearchUser {
   email: string;
   initials: string;
   online?: boolean;
+  avatarUrl?: string  // add this
 }
 
 interface Room {
@@ -34,7 +35,7 @@ interface Room {
 interface Message {
   _id: string;
   content: string;
-  sender_id: { _id: string; name: string };
+  sender_id: { _id: string; name: string; avatarUrl?: string }  // add avatarUrl
   createdAt: string;
   read_by: string[]; 
   type?: 'text' | 'image' | 'file'
@@ -92,7 +93,6 @@ const ChatRoom = () => {
         );
       });
     });
-    console.log("startDM res:", dms);
     setSearchQuery(""); // clear search
     setSearchOpen(false); // close search
   };
@@ -140,7 +140,6 @@ const ChatRoom = () => {
     await api
       .get("/rooms/unread-messages")
       .then((res) => {
-        console.log("unread messages:", res.data.data);
         setPendingMessage((prev) => {
           const updated = new Map(prev);
           res.data.data.forEach((item: { room_id: string; count: number }) => {
@@ -164,7 +163,6 @@ const ChatRoom = () => {
       const newMessages = res.data.data || [];
       if (cursorId) {
         // prepend older messages at top
-        console.log("fetchMessages: prepending older messages:", newMessages);
         setPrevMessages((prev) => [...newMessages, ...prev]);
       } else {
         // initial load — just set
@@ -230,10 +228,11 @@ const ChatRoom = () => {
   };
 
   const logout = async () => {
-    await api.delete("/auth/logout");
-    localStorage.removeItem("token");
-    window.location.href = "/";
-    setSettingsOpen(false);
+    await api.delete('/auth/logout')
+    setAccessToken(null)           // clear memory
+    localStorage.removeItem('userName')
+    localStorage.removeItem('userAvatar')
+    window.location.href = '/'
   };
 
   const sendMessage = () => {
@@ -316,11 +315,8 @@ const ChatRoom = () => {
     }
   }, [searchQuery]);
 
-  useEffect(() => {}, [dms]);
-
   const joinRoom = (roomId: string) => {
     socket.emit("join_room", roomId, (ack) => {
-      console.log("join_room ack:", ack); // fires only when server confirms
     });
   };
   useEffect(() => {
@@ -352,10 +348,8 @@ const ChatRoom = () => {
   }, [activeRoom]);
 
   useEffect(() => {
-    console.log("ChatRoom SOCKET EFFECT mounted");
 
     socket.on("connect", () => {
-      console.log("connected:", socket.id);
       if (activeRoomRef.current?.id) {
         joinRoom(activeRoomRef.current.id);
       }
@@ -364,22 +358,10 @@ const ChatRoom = () => {
       });
     });
 
-    socket.on("disconnect", () => console.log("disconnected"));
+    socket.on("disconnect", () => {});
 
     // ADD THIS
     socket.on("receive_message", (msg) => {
-      console.log("[receive_message] msg:", msg);
-      console.log(
-        "[receive_message] activeRoomRef:",
-        activeRoomRef.current?.id,
-        "msg.room_id:",
-        msg.room_id,
-      );
-
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-      }, 0);
-
       // only append if message belongs to active room
       if (msg.room_id === activeRoomRef.current?.id) {
         setPrevMessages((prev) => [...prev, msg]);
@@ -698,18 +680,19 @@ const ChatRoom = () => {
                     const contact = getOtherMember(activeRoom?.members);
                     if (!contact) return null;
                     return (
-                      <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
-                      {contact[0]?.avatarUrl ? (
-                            <img src={contact[0]?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
-                            {contact[0].initials}
-                          </div>
-                          )}                        
-                        <div
-                          className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact[0].id) ? "bg-green-500" : "bg-[#555]"}`}
-                        ></div>
-                      </div>
+                      <div className="flex items-center gap-2">
+    <div className="relative">
+      {contact[0]?.avatarUrl ? (
+        <img src={contact[0]?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
+      ) : (
+        <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+          {contact[0].initials}
+        </div>
+      )}
+      <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact[0].id) ? "bg-green-500" : "bg-[#555]"}`}></div>
+    </div>
+    <span className="text-white text-[0.9rem] font-medium">{contact[0].name}</span>
+  </div>
                     );
                   })()}
                 </div>

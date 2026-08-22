@@ -166,4 +166,8 @@ export class RoomsService {
       })
       .select('_id');
   }
+
+  async findById(roomId: string) {
+    return this.roomModel.findById(roomId).populate('members', '_id name email avatarUrl');
+  }
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { jwtDecode } from 'jwt-decode'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import { getAccessToken, setAccessToken } from '../api/axios'
 
 export const useAuthGuard = () => {
   const navigate = useNavigate()
@@ -12,7 +13,8 @@ export const useAuthGuard = () => {
     checking.current = true
 
     try {
-      const token = localStorage.getItem('token')
+      const token = getAccessToken()  // from memory
+      
 
       // no token
       if (!token || token === 'undefined') {
@@ -25,7 +27,7 @@ export const useAuthGuard = () => {
       try {
         decoded = jwtDecode(token)
       } catch {
-        localStorage.removeItem('token')
+        setAccessToken(null)
         navigate('/')
         return
       }
@@ -42,11 +44,11 @@ export const useAuthGuard = () => {
         {},
         { withCredentials: true },
       )
-      localStorage.setItem('token', res.data.access_token)
+      setAccessToken(res.data.data.access_token)
 
     } catch {
       // refresh failed too — force re-login
-      localStorage.removeItem('token')
+      setAccessToken(null)
       navigate('/')
     } finally {
       checking.current = false

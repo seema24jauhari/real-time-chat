@@ -1,55 +1,79 @@
 import axios from 'axios'
 
+// memory storage — not localStorage
+let accessToken: string | null = null
+
+export const setAccessToken = (token: string | null) => {
+  accessToken = token
+}
+
+export const getAccessToken = () => accessToken
+
 const api = axios.create({
   baseURL: '/api',
 })
 
-// attach access token to every request
+let isRefreshing = false
+let failedQueue: any[] = []
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) prom.reject(error)
+    else prom.resolve(token)
+  })
+  failedQueue = []
+}
+
+// attach token from memory on every request
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token')
-  if (token) config.headers.Authorization = `Bearer ${token}`
+  if (accessToken) {
+    config.headers.Authorization = `Bearer ${accessToken}`
+  }
   return config
 })
 
-// catch 401 and refresh automatically
 api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
+  response => response,
+  async error => {
     const originalRequest = error.config
 
-    // skip refresh for auth routes — these 401s are legitimate failures
-    const isAuthRoute = originalRequest.url?.includes('/auth/login') ||
-                        originalRequest.url?.includes('/auth/register') ||
-                        originalRequest.url?.includes('/auth/refresh')
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // no token in memory — don't attempt refresh
+      if (!accessToken) return Promise.reject(error)
 
-    if (
-      error.response?.status === 401 &&
-      !originalRequest._retry &&
-      !isAuthRoute  // add this check
-    ) {
-      const token = localStorage.getItem('token')
-      if (!token) return Promise.reject(error)
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject })
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`
+          return api(originalRequest)
+        })
+      }
 
       originalRequest._retry = true
+      isRefreshing = true
 
       try {
         const res = await axios.post('/api/auth/refresh', {}, {
           withCredentials: true
         })
-
         const newToken = res.data.access_token
-        localStorage.setItem('token', newToken)
+        setAccessToken(newToken)  // save to memory not localStorage
+        processQueue(null, newToken)
         originalRequest.headers.Authorization = `Bearer ${newToken}`
         return api(originalRequest)
-
-      } catch (refreshError) {
-        localStorage.removeItem('token')
+      } catch (err) {
+        processQueue(err, null)
+        setAccessToken(null)  // clear memory
         window.location.href = '/'
-        return Promise.reject(refreshError)
+        return Promise.reject(err)
+      } finally {
+        isRefreshing = false
       }
     }
 
     return Promise.reject(error)
   }
 )
+
 export default api
