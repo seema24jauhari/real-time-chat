@@ -23,7 +23,6 @@ import { RoomsService } from 'src/rooms/rooms.service';
 export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server: Server;
-  private onlineUsers = new Set<string>();
 
   constructor(
     private jwtService: JwtService,
