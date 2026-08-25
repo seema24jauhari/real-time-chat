@@ -2,7 +2,19 @@
 
 A production-grade Slack-style chat application built with NestJS, React, Socket.IO, MongoDB, and Redis. Demonstrates real-time WebSocket clustering, presence systems, message delivery guarantees, and cursor-based pagination.
 
----
+## Screenshots
+
+| Login | Register |
+|---|---|
+| ![Login](screenshots/login.png) | ![Register](screenshots/register.png) |
+
+| Change Password | Update Profile |
+|---|---|
+| ![Change Password](screenshots/change-password.png) | ![Update Profile](screenshots/update-profile.png) |
+
+**Real-time chat**
+
+![Chat](screenshots/chat.png)
 
 ## Tech Stack
 
@@ -17,8 +29,6 @@ A production-grade Slack-style chat application built with NestJS, React, Socket
 | Email | Nodemailer (Gmail SMTP) |
 | Validation | class-validator (backend), Zod + React Hook Form (frontend) |
 
----
-
 ## Architecture
 
 ```
@@ -27,8 +37,6 @@ React Client <-> Vite Proxy -> NestJS (Socket.IO Gateway + REST API)
                           MongoDB (messages, rooms, users)
                           Redis (presence set + pub/sub + token blacklist)
 ```
-
----
 
 ## Features
 
@@ -47,8 +55,6 @@ React Client <-> Vite Proxy -> NestJS (Socket.IO Gateway + REST API)
 - Change password + update profile
 - Auto-join default channels on register
 - Responsive UI (mobile sidebar drawer)
-
----
 
 ## Project Structure
 
@@ -74,8 +80,6 @@ client/                     # React frontend
     sockets/                # Socket.IO client instance
 ```
 
----
-
 ## Database Design
 
 ```js
@@ -88,8 +92,6 @@ client/                     # React frontend
 // messages
 { _id, room_id, sender_id, content, read_by[], createdAt }
 ```
-
----
 
 ## WebSocket Events
 
@@ -107,8 +109,6 @@ client/                     # React frontend
 | `get_online_users` | Client → Server | Request online users snapshot |
 | `user_online` | Server → Client | User came online |
 | `user_offline` | Server → Client | User went offline |
-
----
 
 ## REST API
 
@@ -130,8 +130,6 @@ POST   /rooms/dm
 GET    /rooms/:id/messages?cursor=&limit=20
 ```
 
----
-
 ## Getting Started
 
 ### Prerequisites
@@ -144,7 +142,7 @@ GET    /rooms/:id/messages?cursor=&limit=20
 
 Create `.env` in `chat-api/`:
 
-```env
+```
 # App
 PORT=3000
 FRONTEND_URL=http://localhost:5173
@@ -165,7 +163,8 @@ SMTP_PASS=your-app-password
 ```
 
 Create `.env` in `client/`:
-```env
+
+```
 API_URL=http://localhost:3000
 ```
 
@@ -190,8 +189,6 @@ npm run dev
 
 Default channels (`general`) are seeded automatically on app startup via `onModuleInit`.
 
----
-
 ## Key Technical Concepts
 
 **Cursor-based pagination** — uses `_id` as cursor instead of page numbers. New real-time messages don't shift historical pages, preventing duplicate/missing messages on scroll.
@@ -204,13 +201,9 @@ Default channels (`general`) are seeded automatically on app startup via `onModu
 
 **Proactive presence** — user online/offline status stored in Redis Set. On connect/disconnect, status is published to `user_status` channel. All server instances subscribe and broadcast to their connected clients.
 
----
-
 ## Resume Impact
 
-> "Real-time messaging infrastructure handling presence, delivery guarantees, and multi-instance WebSocket clustering via Redis pub/sub. Implemented cursor-based pagination, JWT token rotation with Redis blacklisting, and per-room typing indicators."
-
----
+> Real-time messaging infrastructure handling presence, delivery guarantees, and multi-instance WebSocket clustering via Redis pub/sub. Implemented cursor-based pagination, JWT token rotation with Redis blacklisting, and per-room typing indicators.
 
 ## Interview Topics Covered
 
