@@ -201,16 +201,6 @@ Default channels (`general`) are seeded automatically on app startup via `onModu
 
 **Proactive presence** — user online/offline status stored in Redis Set. On connect/disconnect, status is published to `user_status` channel. All server instances subscribe and broadcast to their connected clients.
 
-## Resume Impact
+## Work Impact
 
 > Real-time messaging infrastructure handling presence, delivery guarantees, and multi-instance WebSocket clustering via Redis pub/sub. Implemented cursor-based pagination, JWT token rotation with Redis blacklisting, and per-room typing indicators.
-
-## Interview Topics Covered
-
-- WebSocket vs polling vs SSE
-- How to scale WebSocket servers (Redis adapter / pub/sub)
-- Message ordering guarantees
-- Cursor pagination vs offset pagination
-- Distributed presence at scale
-- JWT refresh token rotation + revocation
-- Redis data structures (Set, pub/sub, String with TTL)
