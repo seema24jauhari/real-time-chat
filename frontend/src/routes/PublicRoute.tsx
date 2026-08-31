@@ -1,7 +1,9 @@
 import { Navigate, Outlet } from 'react-router-dom'
+import { getAccessToken } from '../api/axios'
 
 const PublicRoute = () => {
-    const token = localStorage.getItem('token')
+    const token = getAccessToken()
+
     if (token) {
         return <Navigate to="/chatroom" replace />
     }

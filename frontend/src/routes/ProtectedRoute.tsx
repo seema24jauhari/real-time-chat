@@ -3,6 +3,7 @@ import { useUser } from '../context/UserContext'
 
 const ProtectedRoute = () => {
   const { user } = useUser()
+  console.log("===============",user)
   return user ? <Outlet /> : <Navigate to="/" replace />
 }
 
