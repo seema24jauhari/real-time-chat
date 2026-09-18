@@ -25,6 +25,7 @@ interface JwtPayload {
   sub: string;
   email: string;
   name: string;
+  session_id: string;
   exp?: number;
   iat?: number;
   password?: string;
@@ -94,11 +95,13 @@ export class AuthService {
       avatarUrl: user.avatarUrl
     });
 
+    const session_id = crypto.randomUUID();
     const payload = {
       sub: user._id,
       email: email,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      session_id
     };
     const refresh_token = this.jwtService.sign(payload, {
       secret: this.config.get<string>('REFRESH_SECRET'),
@@ -117,6 +120,7 @@ export class AuthService {
       user._id.toString(),
       refresh_token,
       expiresAt,
+      session_id
     );
     logger.info('Login successful', {
       email,
@@ -127,7 +131,7 @@ export class AuthService {
   }
 
   // auth.service.ts
-  async refresh(req: express.Request) {
+  async refresh(req: express.Request, res: express.Response) {
     const token: string | undefined = req.cookies?.refresh_token as
       | string
       | undefined;
@@ -142,13 +146,61 @@ export class AuthService {
       isBlacklisted = !(await this.tokensService.isValid(token));
     }
 
-    if (isBlacklisted) throw new UnauthorizedException('Token revoked');
+    const payload = this.jwtService.verify<JwtPayload>(token, {
+        secret: this.config.getOrThrow<string>('REFRESH_SECRET'),
+    });
+
+    if (isBlacklisted) {
+      // Reuse of an already-rotated/revoked token = theft.
+      // Kill every token issued in this chain, not just this one.
+      await this.tokensService.revokeFamily(payload.session_id);
+      logger.error('Refresh token reuse detected — revoking family', {
+        userId: payload.sub,
+      });
+      res.clearCookie('refresh_token');
+      throw new UnauthorizedException('Token revoked');
+    }
+
+     // Rotate: invalidate the presented token
+    await this.tokensService.revoke(token);
+    try {
+      const ttl = payload.exp
+        ? payload.exp - Math.floor(Date.now() / 1000)
+        : 7 * 24 * 60 * 60;
+      await this.redisService.blacklistToken(token, Math.max(ttl, 0));
+    } catch {
+      // Redis unreachable — tokensService.revoke() above is source of truth
+    }
+
+     const new_refresh_token = this.jwtService.sign(
+      {
+        sub: payload.sub,
+        email: payload.email,
+        name: payload.name,
+        avatarUrl: payload.avatarUrl,
+        session_id: payload.session_id, // ← same session_id carried forward
+      },
+      { secret: this.config.get<string>('REFRESH_SECRET'), expiresIn: '7d' },
+    );
+
+
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    res.cookie('refresh_token', new_refresh_token, {
+      httpOnly: true,
+      secure: this.config.get<string>('NODE_ENV') === 'production',
+      sameSite: 'strict',
+      expires: expiresAt,
+    });
+
+    await this.tokensService.create(
+      payload.sub,
+      new_refresh_token,
+      expiresAt,
+      payload.session_id, // ← same session_id, only token value changes
+    );
+
 
     try {
-      const payload = this.jwtService.verify<JwtPayload>(token, {
-        secret: this.config.getOrThrow<string>('REFRESH_SECRET'),
-      });
-
       // Issue a new access token
       const access_token = this.jwtService.sign({
         sub: payload.sub,
@@ -183,7 +235,7 @@ export class AuthService {
   // auth.service.ts — add this method, reusing your existing token-issuing logic
   async handleOAuthLogin(user: User & Document, res: express.Response) {
     
-    const payload: JwtPayload = {
+    const payload = {
       sub: user._id.toString(),
       email: user.email,
       name: user.name,
@@ -202,10 +254,12 @@ export class AuthService {
       expires: expiresAt,
     });
 
+    const session_id = crypto.randomUUID();
     await this.tokensService.create(
       user._id.toString(),
       refresh_token,
       expiresAt,
+      session_id
     );
     logger.info('OAuth login successful', {
       email: user.email,
@@ -271,38 +325,46 @@ export class AuthService {
   }
 
   async forgotPassword(email: string) {
-    const user = await this.usersService.findByEmail(email)
-    if (!user) throw new UnauthorizedException('User not found');
+    const user = await this.usersService.findByEmail(email);
 
+    if (user) {
+      const rawToken = crypto.randomBytes(32).toString('hex');
+      const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+      const expiry = new Date(Date.now() + 3600000); // 1 hour
 
-    const token = crypto.randomBytes(32).toString('hex')
-    const expiry = new Date(Date.now() + 3600000) // 1 hour
+      await this.usersService.updateOne(
+        { email },
+        {
+          resetToken: tokenHash,
+          resetTokenExpiry: expiry,
+        },
+      );
 
-    await this.usersService.updateOne({ email }, {
-      resetToken: token,
-      resetTokenExpiry: expiry
-    })
+      await this.mailService.sendResetEmail(email, rawToken);
+    }
 
-    await this.mailService.sendResetEmail(email, token)
-    return { message: 'Reset email sent' }
+    // Always return the same message — don't leak whether the email exists
+    return { message: 'If that email exists, a reset link has been sent' };
   }
 
   async resetPassword(token: string, newPassword: string) {
-    const user = await this.usersService.findOne({
-      resetToken: token,
-      resetTokenExpiry: { $gt: new Date() } // not expired
-    })
+    const tokenHash = crypto.createHash('sha256').update(token).digest('hex');
 
-    if (!user) throw new BadRequestException('Invalid or expired token')
-    
+    const user = await this.usersService.findOne({
+      resetToken: tokenHash,
+      resetTokenExpiry: { $gt: new Date() }, // not expired
+    });
+
+    if (!user) throw new BadRequestException('Invalid or expired token');
+
     const password_hash = await argon2.hash(newPassword, {
       type: argon2.argon2id,
     });
-    user.password_hash = password_hash
-    user.resetToken = null
-    user.resetTokenExpiry = null
-    await user.save()
+    user.password_hash = password_hash;
+    user.resetToken = null;
+    user.resetTokenExpiry = null;
+    await user.save();
 
-    return { message: 'Password reset successful' }
+    return { message: 'Password reset successful' };
   }
 }

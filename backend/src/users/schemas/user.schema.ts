@@ -27,7 +27,7 @@ export class User {
 
   @Prop({ type: String, default: null })
   provider?: string
-
+ 
   @Prop({ type: String, default: null })
   providerId?: string | null
 

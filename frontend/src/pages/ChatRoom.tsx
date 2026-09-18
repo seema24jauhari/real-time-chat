@@ -22,7 +22,7 @@ interface SearchUser {
   email: string;
   initials: string;
   online?: boolean;
-  avatarUrl?: string  // add this
+  avatarUrl?: string; // add this
 }
 
 interface Room {
@@ -35,11 +35,11 @@ interface Room {
 interface Message {
   _id: string;
   content: string;
-  sender_id: { _id: string; name: string; avatarUrl?: string }  // add avatarUrl
+  sender_id: { _id: string; name: string; avatarUrl?: string }; // add avatarUrl
   createdAt: string;
-  read_by: string[]; 
-  type?: 'text' | 'image' | 'file'
-  filename?: string
+  read_by: string[];
+  type?: "text" | "image" | "file";
+  filename?: string;
 }
 
 const ChatRoom = () => {
@@ -61,8 +61,8 @@ const ChatRoom = () => {
   const messagesRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const userRef = useRef(user);
-  const fileInputRef = useRef<HTMLInputElement>(null)
-  const [uploading, setUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
 
   const [onlineUsers, setOnlineUsers] = useState<Set<string>>(new Set());
   const [typingUsers, setTypingUsers] = useState<
@@ -228,11 +228,11 @@ const ChatRoom = () => {
   };
 
   const logout = async () => {
-    await api.delete('/auth/logout')
-    setAccessToken(null)           // clear memory
-    localStorage.removeItem('userName')
-    localStorage.removeItem('userAvatar')
-    window.location.href = '/'
+    await api.delete("/auth/logout");
+    setAccessToken(null); // clear memory
+    localStorage.removeItem("userName");
+    localStorage.removeItem("userAvatar");
+    window.location.href = "/";
   };
 
   const sendMessage = () => {
@@ -272,35 +272,32 @@ const ChatRoom = () => {
   };
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file || !activeRoom?.id) return
+    const file = e.target.files?.[0];
+    if (!file || !activeRoom?.id) return;
 
     try {
-      setUploading(true)
-      const formData = new FormData()
-      formData.append('file', file)
+      setUploading(true);
+      const formData = new FormData();
+      formData.append("file", file);
 
-      const res = await api.post('/messages/upload', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      })
+      const res = await api.post("/messages/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
 
       // send message with file URL
-      socket.emit('send_message', {
+      socket.emit("send_message", {
         roomId: activeRoom.id,
-        content: res.data.data.url,        // S3 URL as message content
-        type: file.type.startsWith('image') ? 'image' : 'file',
-        filename: res.data.data.filename
-      })
-
-      
-
+        content: res.data.data.url, // S3 URL as message content
+        type: file.type.startsWith("image") ? "image" : "file",
+        filename: res.data.data.filename,
+      });
     } catch (err) {
-      console.error('Upload failed:', err)
+      console.error("Upload failed:", err);
     } finally {
-      setUploading(false)
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
-  }
+  };
 
   useEffect(() => {
     fetchRecentDms();
@@ -316,8 +313,7 @@ const ChatRoom = () => {
   }, [searchQuery]);
 
   const joinRoom = (roomId: string) => {
-    socket.emit("join_room", roomId, (ack) => {
-    });
+    socket.emit("join_room", roomId, (ack) => {});
   };
   useEffect(() => {
     activeRoomRef.current = activeRoom;
@@ -348,7 +344,6 @@ const ChatRoom = () => {
   }, [activeRoom]);
 
   useEffect(() => {
-
     socket.on("connect", () => {
       if (activeRoomRef.current?.id) {
         joinRoom(activeRoomRef.current.id);
@@ -527,13 +522,16 @@ const ChatRoom = () => {
                       <div className="flex flex-1 relative gap-2 items-center">
                         <div className="relative">
                           {contact?.avatarUrl ? (
-                            <img src={contact?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
+                            <img
+                              src={contact?.avatarUrl}
+                              className="w-7 h-7 rounded-full object-cover"
+                            />
                           ) : (
                             <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
-                            {contact.initials}
-                          </div>
+                              {contact.initials}
+                            </div>
                           )}
-                          
+
                           <div
                             className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}
                           ></div>
@@ -681,18 +679,25 @@ const ChatRoom = () => {
                     if (!contact) return null;
                     return (
                       <div className="flex items-center gap-2">
-    <div className="relative">
-      {contact[0]?.avatarUrl ? (
-        <img src={contact[0]?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
-      ) : (
-        <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
-          {contact[0].initials}
-        </div>
-      )}
-      <div className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact[0].id) ? "bg-green-500" : "bg-[#555]"}`}></div>
-    </div>
-    <span className="text-white text-[0.9rem] font-medium">{contact[0].name}</span>
-  </div>
+                        <div className="relative">
+                          {contact[0]?.avatarUrl ? (
+                            <img
+                              src={contact[0]?.avatarUrl}
+                              className="w-7 h-7 rounded-full object-cover"
+                            />
+                          ) : (
+                            <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                              {contact[0].initials}
+                            </div>
+                          )}
+                          <div
+                            className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact[0].id) ? "bg-green-500" : "bg-[#555]"}`}
+                          ></div>
+                        </div>
+                        <span className="text-white text-[0.9rem] font-medium">
+                          {contact[0].name}
+                        </span>
+                      </div>
                     );
                   })()}
                 </div>
@@ -737,13 +742,16 @@ const ChatRoom = () => {
                       {/* avatar with online dot */}
                       <div className="relative flex-shrink-0">
                         {user?.avatarUrl ? (
-                            <img src={user?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                          <img
+                            src={user?.avatarUrl}
+                            className="w-7 h-7 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
                             {user.initials}
                           </div>
-                          )}
-                       
+                        )}
+
                         <div
                           className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#1a1a1a] ${user.online ? "bg-green-500" : "bg-[#555]"}`}
                         />
@@ -808,11 +816,14 @@ const ChatRoom = () => {
                     className={`flex gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
                   >
                     <div className="relative group">
-                        <>
+                      <>
                         {msg.sender_id?.avatarUrl ? (
-                            <img src={msg.sender_id?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
-                          ) : (
-                           <div
+                          <img
+                            src={msg.sender_id?.avatarUrl}
+                            className="w-7 h-7 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div
                             title={msg.sender_id?.name}
                             className={`w-8 h-8 rounded-full flex items-center justify-center text-[0.75rem] font-medium flex-shrink-0 ${
                               mine
@@ -822,11 +833,11 @@ const ChatRoom = () => {
                           >
                             {initials}
                           </div>
-                          )}
-                          <div className="absolute bottom-full right-[-2rem] -translate-x-1/2 mb-1 px-2 py-1 bg-[#2c2c2a] text-white text-[0.7rem] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
-                            {msg.sender_id?.name}
-                          </div>
-                        </>
+                        )}
+                        <div className="absolute bottom-full right-[-2rem] -translate-x-1/2 mb-1 px-2 py-1 bg-[#2c2c2a] text-white text-[0.7rem] rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 pointer-events-none z-50">
+                          {msg.sender_id?.name}
+                        </div>
+                      </>
                     </div>
                     <div
                       className={`flex flex-col max-w-[70%] ${mine ? "items-end" : "items-start"}`}
@@ -834,26 +845,26 @@ const ChatRoom = () => {
                       <div
                         className={`px-3 py-1 rounded-lg text-[0.85rem] ${mine ? "bg-[#032042] text-[#6da7ec] rounded-tr-none" : "bg-[#1a1a1a] text-white rounded-tl-none border border-[#2c2c2a]"}`}
                       >
-{msg.type === 'image' ? (
-  <img
-    src={msg.content}
-    alt="attachment"
-    className="max-w-[200px] rounded-lg cursor-pointer"
-    onClick={() => window.open(msg.content, '_blank')}
-  />
-) : msg.type === 'file' ? (
-  <a
-    href={msg.content}
-    target="_blank"
-    rel="noreferrer"
-    className="flex items-center gap-2 underline text-[0.8rem]"
-  >
-    <Paperclip size={14} />
-    {msg.filename || 'Download file'}
-  </a>
-) : (
-  msg.content
-)}
+                        {msg.type === "image" ? (
+                          <img
+                            src={msg.content}
+                            alt="attachment"
+                            className="max-w-[200px] rounded-lg cursor-pointer"
+                            onClick={() => window.open(msg.content, "_blank")}
+                          />
+                        ) : msg.type === "file" ? (
+                          <a
+                            href={msg.content}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 underline text-[0.8rem]"
+                          >
+                            <Paperclip size={14} />
+                            {msg.filename || "Download file"}
+                          </a>
+                        ) : (
+                          msg.content
+                        )}
                         <div
                           className={`flex items-baseline gap-2 ${mine ? "flex-row-reverse" : "flex-row"}`}
                         >
@@ -908,16 +919,16 @@ const ChatRoom = () => {
               onChange={handleFileUpload}
             />
             <button
-  className="text-[#888] hover:text-white flex-shrink-0"
-  onClick={() => fileInputRef.current?.click()}
-  disabled={uploading}
->
-  {uploading ? (
-    <div className="w-4 h-4 border-2 border-[#6da7ec] border-t-transparent rounded-full animate-spin" />
-  ) : (
-    <Paperclip size={18} />
-  )}
-</button>
+              className="text-[#888] hover:text-white flex-shrink-0"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploading}
+            >
+              {uploading ? (
+                <div className="w-4 h-4 border-2 border-[#6da7ec] border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Paperclip size={18} />
+              )}
+            </button>
             <input
               type="text"
               value={message}
@@ -927,7 +938,7 @@ const ChatRoom = () => {
               onChange={handleTyping}
               className="flex-1 bg-[#1a1a1a] text-white text-[0.85rem] rounded-md px-3 py-2 border border-[#2c2c2a] focus:outline-none focus:border-[#6da7ec]"
             />
-            
+
             <button
               onClick={sendMessage}
               className="bg-[#032042] hover:bg-[#053060] p-2 rounded-md flex-shrink-0"
@@ -967,12 +978,15 @@ const ChatRoom = () => {
                     >
                       <div className="relative">
                         {contact?.avatarUrl ? (
-                            <img src={contact?.avatarUrl} className="w-7 h-7 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
+                          <img
+                            src={contact?.avatarUrl}
+                            className="w-7 h-7 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-7 h-7 rounded-full bg-[#11260f] text-[#0ca30c] flex items-center justify-center text-[0.75rem]">
                             {contact.initials}
                           </div>
-                          )}
+                        )}
                         <div
                           className={`absolute bottom-0 right-0 w-2 h-2 rounded-full border border-[#0d0d0d] ${onlineUsers.has(contact.id) ? "bg-green-500" : "bg-[#555]"}`}
                         ></div>
