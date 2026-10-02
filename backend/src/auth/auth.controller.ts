@@ -70,6 +70,7 @@ export class AuthController {
     return this.authService.logout(req, res);
   }
 
+/*  
   @Get('google')
   @UseGuards(AuthGuard('google'))
   googleLogin() {
@@ -112,6 +113,7 @@ export class AuthController {
   verify(@Body() body: { code: string }, @Req() req: AuthRequest) {
     return this.authService.verifyMfaLogin(req.user.sub._id, body.code);
   }
+*/
 
   @Get('verify-token')
   @UseGuards(JwtAuthGuard)

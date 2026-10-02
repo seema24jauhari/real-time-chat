@@ -2,19 +2,22 @@
 
 A production-grade Slack-style chat application built with NestJS, React, Socket.IO, MongoDB, and Redis. Demonstrates real-time WebSocket clustering, presence systems, message delivery guarantees, and cursor-based pagination.
 
+![Swagger API docs](docs/screenshots/swagger-api-docs.png)
+
 ## Screenshots
+
 
 | Login | Register |
 |---|---|
-| ![Login](screenshots/login.png) | ![Register](screenshots/register.png) |
+| ![Login](docs/screenshots/login.png) | ![Register](docs/screenshots/register.png) |
 
 | Change Password | Update Profile |
 |---|---|
-| ![Change Password](screenshots/change-password.png) | ![Update Profile](screenshots/update-profile.png) |
+| ![Change Password](docs/screenshots/change-password.png) | ![Update Profile](docs/screenshots/update-profile.png) |
 
 **Real-time chat**
 
-![Chat](screenshots/chat.png)
+![Chat](docs/screenshots/chat.png)
 
 ## Tech Stack
 
